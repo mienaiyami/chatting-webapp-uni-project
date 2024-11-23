@@ -7,12 +7,13 @@ import updateUserDetails from "../controllers/updateUserDetails";
 import updateContact from "../controllers/updateContact";
 import userContacts from "../controllers/userContacts";
 import path from "path";
+import { createNewChat, getAllChatsAndGroups } from "../controllers/chatGroup";
 
 const upload = multer({ dest: path.join(process.cwd(), "/storage/avatar") });
 const router = express.Router();
 
 // todo add group routes...
-//todo split routes based on fn
+//todo split routes later
 router.post("/signup", upload.single("avatar"), signup);
 router.post("/signin", signin);
 router.get("/logout", logout);
@@ -28,5 +29,8 @@ router.get("/images/avatar/:filename", (req, res) => {
 });
 router.post("/updateContact", updateContact);
 router.get("/userContacts", userContacts);
+
+router.get("/chat-groups", getAllChatsAndGroups);
+router.post("/chat-groups/create-chat", createNewChat);
 
 export default router;

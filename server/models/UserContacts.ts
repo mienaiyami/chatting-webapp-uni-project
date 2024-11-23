@@ -28,4 +28,14 @@ const userContactsSchema = new mongoose.Schema(
     }
 );
 
+export type FormattedContact = {
+    userId: {
+        _id: mongoose.Types.ObjectId;
+        username: string;
+        avatarUrl: string;
+        email: string;
+    };
+    nickname: string;
+    note: string;
+};
 export default mongoose.model("UserContacts", userContactsSchema);

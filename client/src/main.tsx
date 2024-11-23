@@ -9,15 +9,6 @@ import ErrorPage from "./error-page.tsx";
 import ProfilePage from "./components/Profile.tsx";
 import { Toaster } from "./components/ui/sonner.tsx";
 
-declare global {
-    type UserDetails = {
-        email: string;
-        username: string;
-        avatarUrl: string;
-        _id: string;
-    };
-}
-
 const router = createBrowserRouter([
     {
         path: "/",

@@ -27,7 +27,7 @@ export const signup = async (req, res) => {
         const token = jwt.sign({ userId: user._id }, JWT_SECRET, {
             expiresIn: "7d",
         });
-        res.cookie("token", token, { httpOnly: true, secure: true });
+        res.cookie("token", token);
         return res.status(201).json({ user, token });
     } catch (error) {
         if (error instanceof z.ZodError) {

@@ -16,19 +16,21 @@ const groupSchema = new mongoose.Schema(
         },
         members: [
             {
-                userId: {
+                user: {
                     type: mongoose.Schema.Types.ObjectId,
                     ref: "User",
                     required: true,
-                },
-                isAdmin: {
-                    type: Boolean,
-                    default: false,
                 },
                 joinedAt: {
                     type: Date,
                     default: Date.now,
                 },
+            },
+        ],
+        admins: [
+            {
+                type: mongoose.Schema.Types.ObjectId,
+                ref: "User",
             },
         ],
         messages: [

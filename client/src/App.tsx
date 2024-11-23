@@ -4,19 +4,8 @@ import useTokenStore from "./store/token";
 import ProfilePage from "./components/Profile";
 import useUserDetailStore from "./store/userDetails";
 import { toast } from "sonner";
-
-const getUserDetails = async (userToken: string) => {
-    const response = await fetch("/api/userDetails", {
-        method: "GET",
-        headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${userToken}`,
-        },
-    });
-    const json = await response.json();
-    if (response.ok) return json.user;
-    return null;
-};
+import ChatApp from "./components/Chat";
+import { getUserDetails } from "./utils";
 
 function App() {
     const { token: userToken, setToken } = useTokenStore();
@@ -32,7 +21,7 @@ function App() {
                 .then((data) => {
                     if (data) {
                         setUserDetails(data);
-                        navigate("/profile");
+                        // navigate("/profile");
                     }
                 })
                 .catch((error) => {
@@ -40,7 +29,7 @@ function App() {
                 });
         }
     }, [userToken]);
-    return <>{"Loading..."}</>;
+    return <>{userDetails ? <ChatApp /> : "Loading..."}</>;
 }
 
 export default App;

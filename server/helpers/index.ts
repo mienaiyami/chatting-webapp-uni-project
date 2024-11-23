@@ -32,6 +32,7 @@ export const getUserFromToken = async (token) => {
     }
 };
 export const getUserFromReq = async (req) => {
+    console.log("req.cookies.token", req.cookies);
     const token =
         req.cookies.token ||
         req.body.token ||
