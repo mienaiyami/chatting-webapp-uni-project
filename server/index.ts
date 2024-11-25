@@ -1,21 +1,8 @@
-import cors from "cors";
-import express from "express";
-import cookieParser from "cookie-parser";
 import config from "./config/config";
 import connectDB from "./config/db";
 import routes from "./routes/index";
-import { app, server } from "./socket";
+import { app, server } from "./socket/socket";
 const PORT = config.PORT;
-
-app.use(cookieParser());
-app.use(express.json());
-app.use(
-    cors({
-        //! replace later
-        origin: "*",
-        credentials: true,
-    })
-);
 
 app.use((req, res, next) => {
     console.info(`${req.method} ${req.url}`);

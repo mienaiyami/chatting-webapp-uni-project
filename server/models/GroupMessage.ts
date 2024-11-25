@@ -17,11 +17,7 @@ const groupMessageSchema = new mongoose.Schema(
             type: String,
             required: true,
         },
-        imageUrl: {
-            type: String,
-            default: "",
-        },
-        videoUrl: {
+        mediaUrl: {
             type: String,
             default: "",
         },

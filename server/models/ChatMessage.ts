@@ -1,4 +1,4 @@
-import mongoose from "mongoose";
+import mongoose, { now } from "mongoose";
 
 const chatMessageSchema = new mongoose.Schema(
     {
@@ -12,15 +12,29 @@ const chatMessageSchema = new mongoose.Schema(
             ref: "User",
             required: true,
         },
+        repliedTo: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "ChatMessage",
+            default: null,
+            validate: {
+                validator: async function (
+                    value: mongoose.Types.ObjectId | undefined
+                ) {
+                    if (!value) return true;
+
+                    const MessageModel = mongoose.model("ChatMessage");
+                    const referencedMsg = await MessageModel.findById(value);
+                    return referencedMsg && !referencedMsg.deletedAt;
+                },
+                message:
+                    "Referenced message does not exist or has been deleted",
+            },
+        },
         text: {
             type: String,
             required: true,
         },
-        imageUrl: {
-            type: String,
-            default: "",
-        },
-        videoUrl: {
+        mediaUrl: {
             type: String,
             default: "",
         },

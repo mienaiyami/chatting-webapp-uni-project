@@ -37,7 +37,7 @@ export default function SignIn() {
 
     const userToken = useTokenStore((s) => s.token);
     useLayoutEffect(() => {
-        if (userToken) navigate("/profile");
+        if (userToken) navigate("/");
     }, [userToken, navigate]);
 
     const onSubmit: SubmitHandler<FormInputs> = async (data) => {

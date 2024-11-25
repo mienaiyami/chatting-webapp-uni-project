@@ -73,7 +73,6 @@ export default function SignUp() {
                 body,
             });
             const json = await response.json();
-            console.log("json", json);
             if (!response.ok) {
                 throw new Error(json.message);
             }

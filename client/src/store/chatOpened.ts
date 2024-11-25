@@ -1,11 +1,10 @@
 import { create } from "zustand";
 import { combine } from "zustand/middleware";
-/**
- * id of the chat that is currently opened
- */
+
 const useChatOpenedStore = create(
-    combine({ chatOpened: "" }, (set) => ({
-        setChatOpened: (id: string) => set({ chatOpened: id }),
+    combine({ chatOpened: null as ChatGroupDetails | null }, (set) => ({
+        setChatOpened: (chat: ChatGroupDetails | null) =>
+            set({ chatOpened: chat }),
     }))
 );
 export default useChatOpenedStore;

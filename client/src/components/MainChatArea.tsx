@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useLayoutEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -25,171 +25,30 @@ import {
     TooltipProvider,
     TooltipTrigger,
 } from "./ui/tooltip";
-
-const fetchMessages = async () => {
-    try {
-        const messages: Message[] = [
-            {
-                _id: "msg1",
-                chatId: "chat1",
-                senderId: "6734bed10671076b1ad95a50",
-                text: "Hello! How are you?",
-                imageUrl: "",
-                videoUrl: "",
-                deletedAt: new Date(0),
-                createdAt: new Date(),
-                modifiedAt: new Date(),
-            },
-            {
-                _id: "msg1",
-                chatId: "chat1",
-                senderId: "6734bed10671076b1ad95a50",
-                text: "Hello! How are you?",
-                imageUrl: "",
-                videoUrl: "",
-                deletedAt: new Date(0),
-                createdAt: new Date(),
-                modifiedAt: new Date(),
-            },
-            {
-                _id: "msg1",
-                chatId: "chat1",
-                senderId: "6734bed10671076b1ad95a50",
-                text: "Hello! How are you?",
-                imageUrl: "",
-                videoUrl: "",
-                deletedAt: new Date(0),
-                createdAt: new Date(),
-                modifiedAt: new Date(),
-            },
-            {
-                _id: "msg2",
-                chatId: "chat1",
-                senderId: "6734bf1e0671076b1ad95a5f",
-                text: "I am good, thanks! How about you?",
-                imageUrl: "",
-                videoUrl: "",
-                deletedAt: new Date(0),
-                createdAt: new Date(),
-                modifiedAt: new Date(),
-            },
-            {
-                _id: "msg2",
-                chatId: "chat1",
-                senderId: "6734bf1e0671076b1ad95a5f",
-                text: "I am good, thanks! How about you?",
-                imageUrl: "",
-                videoUrl: "",
-                deletedAt: new Date(0),
-                createdAt: new Date(),
-                modifiedAt: new Date(),
-            },
-            {
-                _id: "msg3",
-                chatId: "chat1",
-                senderId: "6734bed10671076b1ad95a50",
-                text: "Doing well. Working on a project.",
-                imageUrl: "",
-                videoUrl: "",
-                deletedAt: new Date(0),
-                createdAt: new Date(),
-                modifiedAt: new Date(),
-            },
-            {
-                _id: "msg4",
-                chatId: "chat1",
-                senderId: "6734bf1e0671076b1ad95a5f",
-                text: "Sounds interesting! Need any help?",
-                imageUrl: "",
-                videoUrl: "",
-                deletedAt: new Date(0),
-                createdAt: new Date(),
-                modifiedAt: new Date(),
-            },
-            {
-                _id: "msg5",
-                chatId: "chat1",
-                senderId: "6734bed10671076b1ad95a50",
-                text: "Not at the moment, thanks!",
-                imageUrl: "",
-                videoUrl: "",
-                deletedAt: new Date(0),
-                createdAt: new Date(),
-                modifiedAt: new Date(),
-            },
-            {
-                _id: "msg1",
-                chatId: "chat1",
-                senderId: "6734bed10671076b1ad95a50",
-                text: "Hello! How are you?",
-                imageUrl: "",
-                videoUrl: "",
-                deletedAt: new Date(0),
-                createdAt: new Date(),
-                modifiedAt: new Date(),
-            },
-            {
-                _id: "msg2",
-                chatId: "chat1",
-                senderId: "6734bf1e0671076b1ad95a5f",
-                text: "I am good, thanks! How about you?",
-                imageUrl: "",
-                videoUrl: "",
-                deletedAt: new Date(0),
-                createdAt: new Date(),
-                modifiedAt: new Date(),
-            },
-            {
-                _id: "msg3",
-                chatId: "chat1",
-                senderId: "6734bed10671076b1ad95a50",
-                text: "Doing well. Working on a project.",
-                imageUrl: "",
-                videoUrl: "",
-                deletedAt: new Date(0),
-                createdAt: new Date(),
-                modifiedAt: new Date(),
-            },
-            {
-                _id: "msg4",
-                chatId: "chat1",
-                senderId: "6734bf1e0671076b1ad95a5f",
-                text: "Sounds interesting! Need any help?",
-                imageUrl: "",
-                videoUrl: "",
-                deletedAt: new Date(0),
-                createdAt: new Date(),
-                modifiedAt: new Date(),
-            },
-            {
-                _id: "msg5",
-                chatId: "chat1",
-                senderId: "6734bed10671076b1ad95a50",
-                text: "Not at the moment, thanks!",
-                imageUrl: "",
-                videoUrl: "",
-                deletedAt: new Date(0),
-                createdAt: new Date(),
-                modifiedAt: new Date(),
-            },
-        ];
-        return messages;
-        const response = await fetch("/api/chatMessages", {
-            method: "GET",
-            headers: {
-                "Content-Type": "application/json",
-            },
-        });
-        const json = await response.json();
-        if (!response.ok) {
-            throw new Error(json.message || json.error);
-        }
-        return json.messages as Message[];
-    } catch (error) {
-        console.error("An unexpected error occurred:", error);
-        return [];
-    }
-};
+import { useSocket } from "@/socket/SocketProvider";
+import { SOCKET_EVENTS } from "@/socket/events";
+import useChatOpenedStore from "@/store/chatOpened";
+import useMessages from "@/hooks/useMessage";
+import { convertHtmlToMarkdown, formatDate, formatDate2 } from "@/utils";
+import { EmojiPicker } from "./ui/EmojiPicker";
+import { toast } from "sonner";
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+    DialogTrigger,
+    DialogClose,
+} from "@/components/ui/dialog";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import useUserContacts from "@/hooks/useUserContacts";
 
 const renderers: ReactMarkdownComponents = {
     p: ({ children }) => <p className="text-accent-foreground">{children}</p>,
@@ -253,10 +112,14 @@ const renderers: ReactMarkdownComponents = {
     ),
 };
 
-export function MainChatArea({ user2 }: { user2: UserDetails }) {
-    const [newMessage, setNewMessage] = useState("");
-    const [messages, setMessages] = useState<Message[]>([]);
+export function MainChatArea() {
+    const { messages, sendMessage, initializeMessages, resetMessages } =
+        useMessages();
+    const { chatOpened } = useChatOpenedStore();
+    const { updateContact } = useUserContacts();
     const userDetails = useUserDetailStore((state) => state.userDetails)!;
+    const { socket } = useSocket();
+    const [newMessage, setNewMessage] = useState("");
     const [selectedForReply, setSelectedForReply] = useState<Message | null>(
         null
     );
@@ -264,46 +127,68 @@ export function MainChatArea({ user2 }: { user2: UserDetails }) {
     const msgInputRef = useRef<HTMLTextAreaElement>(null);
 
     useEffect(() => {
-        const loadMessages = async () => {
-            const fetchedMessages = await fetchMessages();
-            setMessages(fetchedMessages);
-        };
-        loadMessages();
-    }, []);
+        if (msgInputRef.current) {
+            msgInputRef.current.style.height = "auto";
+            msgInputRef.current.style.height = `${msgInputRef.current.scrollHeight}px`;
+        }
+    }, [newMessage]);
 
     const handleSendMessage = () => {
-        if (newMessage.trim()) {
-            if (selectedForReply) setSelectedForReply(null);
-            setMessages((init) => {
-                return [
-                    ...init,
-                    {
-                        _id: window.crypto.randomUUID(),
-                        chatId: "chat1",
-                        senderId: userDetails._id,
-                        text: newMessage.trim(),
-                        imageUrl: "",
-                        videoUrl: "",
-                        deletedAt: new Date(0),
-                        createdAt: new Date(),
-                        modifiedAt: new Date(),
-                    },
-                ];
+        if (chatOpened && newMessage.trim()) {
+            sendMessage({
+                chatId: chatOpened._id,
+                senderId: userDetails._id,
+                text: newMessage.trim(),
+                repliedTo: selectedForReply,
             });
             setNewMessage("");
+            setSelectedForReply(null);
         }
     };
+
+    // useEffect(() => {
+    //     if (chatOpened) {
+    //         fetch(`/api/chat-groups/messages/${chatOpened._id}`)
+    //             .then((res) => res.json())
+    //             .then((data) => {
+    //                 if (data.error) return console.error(data.error);
+    //                 initializeMessages(data.messages);
+    //             })
+    //             .catch(console.error);
+    //     } else {
+    //         resetMessages();
+    //     }
+    // }, [chatOpened, initializeMessages, resetMessages]);
+
     useEffect(() => {
-        scrollAreaRef.current?.querySelector(":scope > div")?.scrollTo({
-            top: 99999999,
-            behavior: "smooth",
-        });
-    }, [messages]);
+        if (socket && chatOpened) {
+            socket.emit(SOCKET_EVENTS.JOIN_ROOM, chatOpened._id);
+            return () => {
+                socket.emit(SOCKET_EVENTS.LEAVE_ROOM, chatOpened._id);
+            };
+        }
+    }, [socket, chatOpened]);
+
     useEffect(() => {
         if (selectedForReply) {
             msgInputRef.current?.focus();
         }
     }, [selectedForReply]);
+    useEffect(() => {
+        scrollAreaRef.current?.querySelector(":scope >div")?.scrollTo({
+            top: 999999999,
+            behavior: "smooth",
+        });
+    }, [messages]);
+
+    if (!chatOpened)
+        return (
+            <div className="flex-1 grid place-items-center w-full select-none border rounded-r-lg border-l-0 max-h-screen">
+                <p className="text-accent-foreground">
+                    Select a chat/group to start chatting
+                </p>
+            </div>
+        );
 
     return (
         <div className="flex-1 flex flex-col border rounded-r-lg border-l-0 max-h-screen">
@@ -311,22 +196,20 @@ export function MainChatArea({ user2 }: { user2: UserDetails }) {
                 <div className="flex items-center select-none">
                     <Avatar className="h-10 w-10 mr-4">
                         <AvatarImage
-                            src={user2.avatarUrl}
-                            alt={user2.username}
+                            src={chatOpened.displayPicture}
+                            alt={chatOpened.displayName}
                         />
                         <AvatarFallback>
-                            {user2.username.slice(0, 2).toUpperCase()}
+                            {chatOpened.displayName.slice(0, 2).toUpperCase()}
                         </AvatarFallback>
                     </Avatar>
                     <div>
-                        <h2 className="font-bold">
-                            {user2.nickname || user2.username}
-                        </h2>
+                        <h2 className="font-bold">{chatOpened.displayName}</h2>
                         <p className="text-sm text-muted-foreground">Online</p>
                     </div>
                 </div>
                 <div>
-                    <Button
+                    {/* <Button
                         variant="ghost"
                         size="icon"
                         className="mr-2"
@@ -343,17 +226,73 @@ export function MainChatArea({ user2 }: { user2: UserDetails }) {
                     >
                         <Video className="h-5 w-5" />
                         <span className="sr-only">Video Call</span>
-                    </Button>
-                    <Button variant="ghost" size="icon">
-                        <MoreHorizontal className="h-5 w-5" />
-                        <span className="sr-only">More Options</span>
-                    </Button>
+                    </Button> */}
+
+                    <Dialog>
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon">
+                                    <MoreHorizontal className="h-5 w-5" />
+                                    <span className="sr-only">
+                                        More Options
+                                    </span>
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                                <DialogTrigger asChild>
+                                    <DropdownMenuItem>
+                                        Clear Chat
+                                    </DropdownMenuItem>
+                                </DialogTrigger>
+                                <DropdownMenuItem
+                                    onClick={() => {
+                                        updateContact(
+                                            chatOpened.members.find(
+                                                (m) => m._id !== userDetails._id
+                                            )!._id,
+                                            "add"
+                                        );
+                                    }}
+                                >
+                                    Add Contact
+                                </DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                        <DialogContent>
+                            <DialogHeader>
+                                <DialogTitle>Clear Chat</DialogTitle>
+                                <DialogDescription>
+                                    Are you sure you want to clear all messages?
+                                    This action cannot be undone.
+                                </DialogDescription>
+                            </DialogHeader>
+                            <DialogFooter>
+                                <DialogClose asChild>
+                                    <Button variant="outline">Cancel</Button>
+                                </DialogClose>
+                                <DialogClose asChild>
+                                    <Button
+                                        variant="destructive"
+                                        onClick={() => {
+                                            if (!socket || !chatOpened) return;
+                                            socket.emit(
+                                                SOCKET_EVENTS.CLEAR_CHAT,
+                                                { chatId: chatOpened._id }
+                                            );
+                                        }}
+                                    >
+                                        Clear
+                                    </Button>
+                                </DialogClose>
+                            </DialogFooter>
+                        </DialogContent>
+                    </Dialog>
                 </div>
             </div>
             <TooltipProvider
                 delayDuration={100}
                 disableHoverableContent
-                skipDelayDuration={1000}
+                skipDelayDuration={0}
             >
                 <ScrollArea
                     className="overflow-y-auto p-4 h-full"
@@ -363,13 +302,13 @@ export function MainChatArea({ user2 }: { user2: UserDetails }) {
                         <div
                             key={message._id + i}
                             data-message-id={message._id}
-                            className={`group/message rounded-md relative flex flex-col items-start ${
+                            className={`group/message hover:bg-accent/10 rounded-md relative flex flex-col items-start ${
                                 selectedForReply?._id === message._id
                                     ? "bg-accent/20"
                                     : ""
-                            }`}
+                            } ${message.optimistic ? "opacity-50" : ""}`}
                         >
-                            <div className="group-hover/message:flex absolute right-0 top-0 hidden flex-row gap-0 items-center">
+                            <div className="group-hover/message:flex bg-accent/50 rounded-sm absolute right-0 top-0 hidden flex-row gap-0 items-center">
                                 <Tooltip>
                                     <TooltipTrigger asChild>
                                         <Button
@@ -423,10 +362,93 @@ export function MainChatArea({ user2 }: { user2: UserDetails }) {
                                 </Tooltip>
                             </div>
                             {(i === 0 ||
+                                message.repliedTo ||
                                 (i > 0 &&
                                     arr[i - 1].senderId !==
                                         message.senderId)) && (
-                                <div className="w-full flex items-center justify-between mb-1 mt-2 cursor-default">
+                                <div className="w-full flex flex-col gap-0.5 items-start justify-between mb-1 mt-2 cursor-default">
+                                    {message.repliedTo &&
+                                        message.repliedTo._id && (
+                                            <div
+                                                className="flex items-center gap-1 hover:underline"
+                                                role="button"
+                                                tabIndex={0}
+                                                onClick={() => {
+                                                    const element =
+                                                        document.querySelector(
+                                                            `[data-message-id="${message.repliedTo?._id}"]`
+                                                        );
+                                                    if (element) {
+                                                        element.scrollIntoView({
+                                                            behavior: "smooth",
+                                                        });
+                                                        element.classList.add(
+                                                            "animate-flash"
+                                                        );
+                                                        element.addEventListener(
+                                                            "animationend",
+                                                            () => {
+                                                                element.classList.remove(
+                                                                    "animate-flash"
+                                                                );
+                                                            },
+                                                            { once: true }
+                                                        );
+                                                    }
+                                                }}
+                                            >
+                                                <span className="text-xs">
+                                                    Replying to
+                                                </span>
+                                                <Avatar className="h-4 w-4">
+                                                    <AvatarImage
+                                                        src={
+                                                            message.repliedTo
+                                                                .senderId ===
+                                                            userDetails._id
+                                                                ? userDetails.avatarUrl
+                                                                : chatOpened.displayPicture
+                                                        }
+                                                        alt={
+                                                            message.repliedTo
+                                                                .senderId ===
+                                                            userDetails._id
+                                                                ? userDetails.avatarUrl
+                                                                : chatOpened.displayPicture
+                                                        }
+                                                    />
+                                                    <AvatarFallback>
+                                                        {(message.repliedTo
+                                                            .senderId ===
+                                                        userDetails._id
+                                                            ? userDetails.avatarUrl
+                                                            : chatOpened.displayPicture
+                                                        )
+                                                            .slice(0, 2)
+                                                            .toUpperCase()}
+                                                    </AvatarFallback>
+                                                </Avatar>
+                                                <div className="flex flex-row gap-2 items-center">
+                                                    <h3 className="text-sm">
+                                                        {message.repliedTo
+                                                            .senderId ===
+                                                        userDetails._id
+                                                            ? userDetails.username
+                                                            : chatOpened.displayName}
+                                                    </h3>
+                                                    <div className={`text-xs`}>
+                                                        {message.repliedTo.text
+                                                            .replace("\n", " ")
+                                                            .slice(0, 20) +
+                                                            (message.repliedTo
+                                                                .text.length >
+                                                            20
+                                                                ? "..."
+                                                                : "")}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        )}
                                     <div className="flex items-center">
                                         <Avatar className="h-8 w-8 mr-2">
                                             <AvatarImage
@@ -434,20 +456,20 @@ export function MainChatArea({ user2 }: { user2: UserDetails }) {
                                                     message.senderId ===
                                                     userDetails._id
                                                         ? userDetails.avatarUrl
-                                                        : user2.avatarUrl
+                                                        : chatOpened.displayPicture
                                                 }
                                                 alt={
                                                     message.senderId ===
                                                     userDetails._id
                                                         ? userDetails.avatarUrl
-                                                        : user2.avatarUrl
+                                                        : chatOpened.displayPicture
                                                 }
                                             />
                                             <AvatarFallback>
                                                 {(message.senderId ===
                                                 userDetails._id
                                                     ? userDetails.avatarUrl
-                                                    : user2.avatarUrl
+                                                    : chatOpened.displayPicture
                                                 )
                                                     .slice(0, 2)
                                                     .toUpperCase()}
@@ -458,32 +480,59 @@ export function MainChatArea({ user2 }: { user2: UserDetails }) {
                                                 {message.senderId ===
                                                 userDetails._id
                                                     ? userDetails.username
-                                                    : user2.nickname ||
-                                                      user2.username}
+                                                    : chatOpened.displayName}
                                             </h3>
-                                            <span className="text-xs text-muted-foreground">
-                                                {new Date(message.createdAt)
-                                                    .toLocaleString()
-                                                    .replace(",", "")}
-                                            </span>
+                                            <Tooltip delayDuration={1000}>
+                                                <TooltipTrigger asChild>
+                                                    <span className="text-xs text-muted-foreground">
+                                                        {formatDate(
+                                                            message.createdAt
+                                                        )}
+                                                    </span>
+                                                </TooltipTrigger>
+                                                <TooltipContent className="text-xs px-2 py-1">
+                                                    {formatDate2(
+                                                        message.createdAt
+                                                    )}
+                                                </TooltipContent>
+                                            </Tooltip>
                                         </div>
                                     </div>
                                 </div>
                             )}
-                            <div
-                                className={`p-2 bg-accent/50 text-accent-foreground rounded-lg ${
-                                    // i === 0 ||
-                                    // (i > 0 &&
-                                    //     arr[i - 1].senderId !==
-                                    //         message.senderId)
-                                    //     ? "mb-1"
-                                    //     : ""
-                                    "mb-1"
-                                }`}
-                            >
-                                <ReactMarkdown components={renderers}>
-                                    {message.text}
-                                </ReactMarkdown>
+                            <div className="flex flex-row items-start gap-1">
+                                <Tooltip delayDuration={1000}>
+                                    <TooltipTrigger asChild>
+                                        <div className="w-8 pt-2 pl-1 group-hover/message:opacity-100 opacity-0 select-none text-xs text-accent-foreground/30">
+                                            {new Date(
+                                                message.createdAt
+                                            ).toLocaleTimeString("en-GB", {
+                                                hour: "2-digit",
+                                                minute: "2-digit",
+                                                hour12: false,
+                                            })}
+                                        </div>
+                                    </TooltipTrigger>
+                                    <TooltipContent className="text-xs px-2 py-1">
+                                        {formatDate2(message.createdAt)}
+                                    </TooltipContent>
+                                </Tooltip>
+
+                                <div
+                                    className={`p-2 bg-accent/50 text-accent-foreground rounded-lg max-w-[80%] break-words whitespace-pre-wrap ${
+                                        i === 0 ||
+                                        message.repliedTo ||
+                                        (i > 0 &&
+                                            arr[i - 1].senderId !==
+                                                message.senderId)
+                                            ? "mb-1"
+                                            : "my-1"
+                                    }`}
+                                >
+                                    <ReactMarkdown components={renderers}>
+                                        {message.text}
+                                    </ReactMarkdown>
+                                </div>
                             </div>
                         </div>
                     ))}
@@ -495,18 +544,32 @@ export function MainChatArea({ user2 }: { user2: UserDetails }) {
                         <span
                             className="hover:underline"
                             role="button"
+                            tabIndex={0}
                             onClick={() => {
-                                document
-                                    .querySelector(
-                                        `[data-message-id="${selectedForReply._id}"]`
-                                    )
-                                    ?.scrollIntoView({ behavior: "smooth" });
+                                const element = document.querySelector(
+                                    `[data-message-id="${selectedForReply._id}"]`
+                                );
+                                if (element) {
+                                    element.scrollIntoView({
+                                        behavior: "smooth",
+                                    });
+                                    element.classList.add("animate-flash");
+                                    element.addEventListener(
+                                        "animationend",
+                                        () => {
+                                            element.classList.remove(
+                                                "animate-flash"
+                                            );
+                                        },
+                                        { once: true }
+                                    );
+                                }
                             }}
                         >
                             Replying to{" "}
                             {selectedForReply.senderId === userDetails._id
                                 ? userDetails.username
-                                : user2.username}
+                                : chatOpened.displayName}
                         </span>
                         <Button
                             variant="ghost"
@@ -521,7 +584,12 @@ export function MainChatArea({ user2 }: { user2: UserDetails }) {
             )}
             <div className="p-4 border-t relative">
                 <div className="flex items-center">
-                    <Button variant="ghost" size="icon" className="mr-2">
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className="mr-2"
+                        disabled
+                    >
                         <Paperclip className="h-5 w-5" />
                         <span className="sr-only">Attach File</span>
                     </Button>
@@ -529,6 +597,8 @@ export function MainChatArea({ user2 }: { user2: UserDetails }) {
                         placeholder="Type a message..."
                         ref={msgInputRef}
                         value={newMessage}
+                        rows={1}
+                        className="resize-none min-h-fit max-h-32 row-auto"
                         onChange={(e) => setNewMessage(e.target.value)}
                         onKeyDown={(e) => {
                             if (e.key === "Enter") {
@@ -541,13 +611,43 @@ export function MainChatArea({ user2 }: { user2: UserDetails }) {
                                 setSelectedForReply(null);
                             }
                         }}
-                        rows={1}
-                        className="resize-none min-h-fit"
+                        onPaste={(e) => {
+                            e.preventDefault();
+                            if (e.clipboardData.types.includes("Files")) {
+                                toast.error("File upload not supported yet.");
+                                return;
+                            }
+                            if (e.clipboardData.types.includes("text/html")) {
+                                const text =
+                                    e.clipboardData.getData("text/html");
+                                const md = convertHtmlToMarkdown(text);
+                                setNewMessage((prev) => prev + md);
+                                return;
+                            }
+                            if (e.clipboardData.types.includes("text/plain")) {
+                                const text =
+                                    e.clipboardData.getData("text/plain");
+                                setNewMessage((prev) => prev + text);
+                                return;
+                            }
+                        }}
                     />
-                    <Button variant="ghost" size="icon" className="ml-2">
-                        <Smile className="h-5 w-5" />
-                        <span className="sr-only">Add Emoji</span>
-                    </Button>
+
+                    <EmojiPicker
+                        onEmojiSelect={(e) => {
+                            const input = msgInputRef.current;
+                            if (!input) return;
+                            const startPos = input.selectionStart;
+                            const endPos = input.selectionEnd;
+                            const text = input.value;
+                            const before = text.substring(0, startPos);
+                            const after = text.substring(endPos, text.length);
+                            input.value = before + e + after;
+                            input.selectionStart = startPos + e.length;
+                            input.selectionEnd = startPos + e.length;
+                            setNewMessage(input.value);
+                        }}
+                    />
                     <Button onClick={handleSendMessage} className="ml-2">
                         <Send className="h-5 w-5" />
                         <span className="sr-only">Send Message</span>

@@ -14,7 +14,6 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Trash, UserPlus } from "lucide-react";
 import useUserDetailStore from "@/store/userDetails";
 import { toast } from "sonner";
-import useTokenStore from "@/store/token";
 import searchUsers from "@/requests/searchUsers";
 import useUserContacts from "@/hooks/useUserContacts";
 
@@ -25,8 +24,7 @@ export default function AddContactDialog() {
     const [isLoading, setIsLoading] = useState(false);
 
     const currentUser = useUserDetailStore((s) => s.userDetails);
-    const token = useTokenStore((s) => s.token)!;
-    const { contacts, updateContact } = useUserContacts(token);
+    const { contacts, updateContact } = useUserContacts();
 
     useEffect(() => {
         const timeoutId = setTimeout(() => {
@@ -77,25 +75,19 @@ export default function AddContactDialog() {
                                         variant="ghost"
                                         className="flex w-full space-x-2 items-center h-full p-2 rounded-md hover:bg-accent"
                                         onClick={() => {
-                                            if (token) {
-                                                toast.promise(
-                                                    updateContact(
-                                                        token,
-                                                        user._id,
-                                                        "add"
-                                                    ),
-                                                    {
-                                                        loading:
-                                                            "Adding contact...",
-                                                        success: (data) =>
-                                                            data?.message ||
-                                                            "Updated.",
-                                                        error: (error) =>
-                                                            error?.message ||
-                                                            "An unexpected error occurred",
-                                                    }
-                                                );
-                                            }
+                                            toast.promise(
+                                                updateContact(user._id, "add"),
+                                                {
+                                                    loading:
+                                                        "Adding contact...",
+                                                    success: (data) =>
+                                                        data?.message ||
+                                                        "Updated.",
+                                                    error: (error) =>
+                                                        error?.message ||
+                                                        "An unexpected error occurred",
+                                                }
+                                            );
                                         }}
                                     >
                                         <Avatar className="h-8 w-8">
@@ -133,25 +125,22 @@ export default function AddContactDialog() {
                                             size="sm"
                                             className="h-[3.2rem]"
                                             onClick={() => {
-                                                if (token) {
-                                                    toast.promise(
-                                                        updateContact(
-                                                            token,
-                                                            user._id,
-                                                            "remove"
-                                                        ),
-                                                        {
-                                                            loading:
-                                                                "Removing contact...",
-                                                            success: (data) =>
-                                                                data?.message ||
-                                                                "Updated. ",
-                                                            error: (error) =>
-                                                                error?.message ||
-                                                                "An unexpected error occurred",
-                                                        }
-                                                    );
-                                                }
+                                                toast.promise(
+                                                    updateContact(
+                                                        user._id,
+                                                        "remove"
+                                                    ),
+                                                    {
+                                                        loading:
+                                                            "Removing contact...",
+                                                        success: (data) =>
+                                                            data?.message ||
+                                                            "Updated. ",
+                                                        error: (error) =>
+                                                            error?.message ||
+                                                            "An unexpected error occurred",
+                                                    }
+                                                );
                                             }}
                                         >
                                             <Trash className="h-full" />

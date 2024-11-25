@@ -9,7 +9,6 @@ export const userSchema = z.object({
     email: z.string().email(),
     password: z.string().min(6).max(255),
 });
-
 export const signup = async (req, res) => {
     try {
         const { username, email, password } = userSchema.parse(req.body);

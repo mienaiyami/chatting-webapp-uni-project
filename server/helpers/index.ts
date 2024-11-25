@@ -2,7 +2,7 @@ import { z } from "zod";
 import { JWT_SECRET } from "../config/config";
 import User from "../models/User";
 import jwt from "jsonwebtoken";
-import { clearLine } from "readline";
+import { Request } from "express";
 
 export class ApiError extends Error {
     statusCode: number;
@@ -24,15 +24,14 @@ export const getUserFromToken = async (token) => {
         return null;
     }
     try {
-        const { userId } = jwt.verify(token, JWT_SECRET);
+        const { userId } = jwt.verify(token, JWT_SECRET) as { userId: string };
         const user = await User.findById(userId).select("-password");
         return user;
     } catch (error) {
         return null;
     }
 };
-export const getUserFromReq = async (req) => {
-    console.log("req.cookies.token", req.cookies);
+export const getUserFromReq = async (req: Request) => {
     const token =
         req.cookies.token ||
         req.body.token ||

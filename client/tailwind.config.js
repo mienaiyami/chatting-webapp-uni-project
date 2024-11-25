@@ -51,6 +51,15 @@ export default {
                     5: "hsl(var(--chart-5))",
                 },
             },
+            keyframes: {
+                flash: {
+                    "0%, 100%": { backgroundColor: "transparent" },
+                    "50%": { backgroundColor: "hsl(var(--accent))" },
+                },
+            },
+            animation: {
+                flash: "flash 2s ease-in-out",
+            },
         },
     },
     plugins: [

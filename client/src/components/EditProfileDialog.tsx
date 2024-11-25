@@ -13,7 +13,6 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Edit } from "lucide-react";
-import useTokenStore from "@/store/token";
 import useUserDetailStore from "@/store/userDetails";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -44,7 +43,6 @@ export function EditProfileDialog() {
         setUserDetails: s.setUserDetails,
     }))!;
     const [profilePic, setProfilePic] = useState<string | null>(null);
-    const userToken = useTokenStore((s) => s.token);
     const [isOpen, setIsOpen] = useState(false);
     const {
         register,
@@ -80,7 +78,7 @@ export function EditProfileDialog() {
                 method: "POST",
                 headers: {
                     // "Content-Type": "application/json",
-                    Authorization: `Bearer ${userToken}`,
+                    // Authorization: `Bearer ${userToken}`,
                 },
                 body,
                 // body: JSON.stringify(data),
@@ -91,7 +89,6 @@ export function EditProfileDialog() {
             }
             toast.success("Profile updated successfully");
             reset();
-            console.log(json.user);
             setUserDetails(json.user);
             setIsOpen(false);
         } catch (error) {
