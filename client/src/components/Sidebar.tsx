@@ -6,14 +6,16 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Settings, Search, MessageSquare } from "lucide-react";
 import { Link } from "react-router-dom";
 import AddContactDialog from "./AddContactDialog";
-import useUserContacts from "@/hooks/useUserContacts";
 import useChatOpenedStore from "@/store/chatOpened";
 import useChat from "@/hooks/useChat";
 import { formatDate } from "@/utils";
+import useUserDetailStore from "@/store/userDetails";
 
 export function Sidebar() {
     const [searchQuery, setSearchQuery] = useState("");
     const { chatOpened, setChatOpened } = useChatOpenedStore();
+    const userDetails = useUserDetailStore((state) => state.userDetails)!;
+
     const { combinedList, createChat, loading } = useChat();
 
     if (loading) {
@@ -27,9 +29,23 @@ export function Sidebar() {
         <div className="w-1/2 sm:w-72 lg:w-96 border rounded-l-lg flex flex-col">
             <div className="p-4 border-b h-18 flex flex-row gap-1">
                 <Link to={"/profile"}>
-                    <Button variant="ghost" size="icon">
-                        <Settings className="h-5 w-5" />
-                        <span className="sr-only">Settings</span>
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className="rounded-full"
+                    >
+                        <Avatar className="h-9 w-9">
+                            <AvatarImage
+                                src={userDetails?.avatarUrl}
+                                alt={userDetails?.username}
+                            />
+                            <AvatarFallback>
+                                {userDetails?.username
+                                    ?.slice(0, 2)
+                                    .toUpperCase()}
+                            </AvatarFallback>
+                        </Avatar>
+                        <span className="sr-only">Profile</span>
                     </Button>
                 </Link>
                 <AddContactDialog />
