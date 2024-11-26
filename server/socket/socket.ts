@@ -181,6 +181,7 @@ io.on("connection", async (socket) => {
                         path: "messages",
                         options: { sort: { createdAt: -1 }, limit: 1 },
                     })
+                    .populate("members.user", "username avatarUrl")
                     .exec(),
             ]);
             socket.emit(SOCKET_EVENTS.CHATS_AND_GROUPS, { chats, groups });
@@ -334,7 +335,6 @@ io.on("connection", async (socket) => {
                     message,
                 });
 
-                // Notify the target user
                 socket.to(targetUserId).emit(SOCKET_EVENTS.CONTACT_UPDATED, {
                     userId,
                     action,
@@ -355,10 +355,8 @@ io.on("connection", async (socket) => {
             });
             if (!chat) return;
 
-            // Soft delete all messages
             await ChatMessage.updateMany({ chatId }, { deletedAt: new Date() });
 
-            // Notify all chat members
             chat.members.forEach((memberId) => {
                 io.to(memberId.toString()).emit(SOCKET_EVENTS.CHAT_CLEARED, {
                     chatId,

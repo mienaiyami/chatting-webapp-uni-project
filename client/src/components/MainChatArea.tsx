@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef, useLayoutEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -13,6 +12,8 @@ import {
     Reply,
     Edit2,
     X,
+    Delete,
+    Trash2,
 } from "lucide-react";
 import useUserDetailStore from "@/store/userDetails";
 import { Textarea } from "@/components/ui/textarea";
@@ -51,64 +52,55 @@ import {
 import useUserContacts from "@/hooks/useUserContacts";
 
 const renderers: ReactMarkdownComponents = {
-    p: ({ children }) => <p className="text-accent-foreground">{children}</p>,
-    strong: ({ children }) => (
-        <strong className="text-accent-foreground">{children}</strong>
+    p: ({ children }) => (
+        <p className="text-accent-foreground mb-2">{children}</p>
     ),
-    em: ({ children }) => (
-        <em className="text-accent-foreground italic">{children}</em>
-    ),
-    s: ({ children }) => <s className="text-accent-foreground">{children}</s>,
+    strong: ({ children }) => <strong className="font-bold">{children}</strong>,
+    em: ({ children }) => <em className="italic">{children}</em>,
+    s: ({ children }) => <s className="line-through">{children}</s>,
+
     code: ({ children }) => (
         <code className="bg-accent text-accent-foreground p-1 rounded">
             {children}
         </code>
     ),
     pre: ({ children }) => (
-        <pre className="bg-accent text-accent-foreground p-1 rounded whitespace-pre">
+        <pre className="bg-accent text-accent-foreground p-1 rounded whitespace-pre overflow-x-auto">
             {children}
         </pre>
     ),
     blockquote: ({ children }) => (
-        <blockquote className="border-l-4 border-accent-foreground pl-4 text-accent-foreground">
+        <blockquote className="border-l-4 border-gray-500 pl-4 italic">
             {children}
         </blockquote>
     ),
     a: ({ href, children }) => (
-        <a
-            href={href}
-            target="_blank"
-            className="text-accent-foreground underline"
-        >
+        <a href={href} target="_blank" className="text-blue-500 underline">
             {children}
         </a>
     ),
-    ul: ({ children }) => (
-        <ul className="text-accent-foreground list-disc list-inside">
-            {children}
-        </ul>
+    ul: ({ children }) => <ul className="list-disc list-inside">{children}</ul>,
+    ol: ({ children }) => (
+        <ol className="list-decimal list-inside">{children}</ol>
     ),
-    // todo fix marker margin
-    li: ({ children }) => (
-        <li className="text-accent-foreground pl-1">{children}</li>
-    ),
+    li: ({ children }) => <li className="mb-1">{children}</li>,
     h1: ({ children }) => (
-        <h1 className="text-2xl text-accent-foreground mb-2">{children}</h1>
+        <h1 className="text-2xl font-bold mb-2">{children}</h1>
     ),
     h2: ({ children }) => (
-        <h2 className="text-xl text-accent-foreground mb-1">{children}</h2>
+        <h2 className="text-xl font-bold mb-2">{children}</h2>
     ),
     h3: ({ children }) => (
-        <h3 className="text-lg text-accent-foreground">{children}</h3>
+        <h3 className="text-lg font-bold mb-2">{children}</h3>
     ),
     h4: ({ children }) => (
-        <h4 className="text-base text-accent-foreground">{children}</h4>
+        <h4 className="text-base font-bold mb-2">{children}</h4>
     ),
     h5: ({ children }) => (
-        <h4 className="text-sm text-accent-foreground">{children}</h4>
+        <h5 className="text-sm font-bold mb-2">{children}</h5>
     ),
     h6: ({ children }) => (
-        <h4 className="text-xs text-accent-foreground">{children}</h4>
+        <h6 className="text-xs font-bold mb-2">{children}</h6>
     ),
 };
 
@@ -189,7 +181,6 @@ export function MainChatArea() {
                 </p>
             </div>
         );
-
     return (
         <div className="flex-1 flex flex-col border rounded-r-lg border-l-0 max-h-screen">
             <div className="p-4 border-b flex justify-between items-center">
@@ -244,18 +235,25 @@ export function MainChatArea() {
                                         Clear Chat
                                     </DropdownMenuItem>
                                 </DialogTrigger>
-                                <DropdownMenuItem
-                                    onClick={() => {
-                                        updateContact(
-                                            chatOpened.members.find(
-                                                (m) => m._id !== userDetails._id
-                                            )!._id,
-                                            "add"
-                                        );
-                                    }}
-                                >
-                                    Add Contact
-                                </DropdownMenuItem>
+
+                                {chatOpened.displayName.includes(
+                                    "(Unknown)"
+                                ) && (
+                                    <DropdownMenuItem
+                                        onClick={() => {
+                                            updateContact(
+                                                chatOpened.members.find(
+                                                    (m) =>
+                                                        m._id !==
+                                                        userDetails._id
+                                                )!._id,
+                                                "add"
+                                            );
+                                        }}
+                                    >
+                                        Add Contact
+                                    </DropdownMenuItem>
+                                )}
                             </DropdownMenuContent>
                         </DropdownMenu>
                         <DialogContent>
@@ -328,22 +326,57 @@ export function MainChatArea() {
                                         Reply
                                     </TooltipContent>
                                 </Tooltip>
-                                <Tooltip>
-                                    <TooltipTrigger asChild>
-                                        <Button
-                                            variant="ghost"
-                                            className="w-8 h-8 p-2 rounded-none"
-                                        >
-                                            <Edit2 className="aspect-square h-4" />
-                                            <span className="sr-only">
+                                {message.senderId === userDetails._id && (
+                                    <>
+                                        <Tooltip>
+                                            <TooltipTrigger asChild>
+                                                <Button
+                                                    variant="ghost"
+                                                    className="w-8 h-8 p-2 rounded-none"
+                                                >
+                                                    <Edit2 className="aspect-square h-4" />
+                                                    <span className="sr-only">
+                                                        Edit
+                                                    </span>
+                                                </Button>
+                                            </TooltipTrigger>
+                                            <TooltipContent className="text-xs px-2 py-1">
                                                 Edit
-                                            </span>
-                                        </Button>
-                                    </TooltipTrigger>
-                                    <TooltipContent className="text-xs px-2 py-1">
-                                        Edit
-                                    </TooltipContent>
-                                </Tooltip>
+                                            </TooltipContent>
+                                        </Tooltip>
+                                        <Tooltip>
+                                            <TooltipTrigger asChild>
+                                                <Button
+                                                    variant="ghost"
+                                                    className="w-8 h-8 p-2 rounded-none"
+                                                    onClick={() => {
+                                                        if (
+                                                            !socket ||
+                                                            !chatOpened
+                                                        )
+                                                            return;
+                                                        socket.emit(
+                                                            SOCKET_EVENTS.DELETE_MESSAGE,
+                                                            {
+                                                                chatId: chatOpened._id,
+                                                                messageId:
+                                                                    message._id,
+                                                            }
+                                                        );
+                                                    }}
+                                                >
+                                                    <Trash2 className="aspect-square h-4" />
+                                                    <span className="sr-only">
+                                                        Delete
+                                                    </span>
+                                                </Button>
+                                            </TooltipTrigger>
+                                            <TooltipContent className="text-xs px-2 py-1">
+                                                Delete
+                                            </TooltipContent>
+                                        </Tooltip>
+                                    </>
+                                )}
                                 <Tooltip>
                                     <TooltipTrigger asChild>
                                         <Button

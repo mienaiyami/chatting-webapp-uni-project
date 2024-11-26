@@ -27,10 +27,10 @@ router.get("/images/avatar/:filename", (req, res) => {
         path.join(process.cwd(), `/storage/avatar/${req.params.filename}`)
     );
 });
+// moved to socket
 // router.post("/updateContact", updateContact);
 // router.get("/userContacts", userContacts);
 
-// moved to socket
 // router.get("/chat-groups", getAllChatsAndGroups);
 // router.post("/chat-groups/create-chat", createNewChat);
 // // for for all chat messages

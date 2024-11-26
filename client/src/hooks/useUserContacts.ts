@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useSocket } from "../socket/SocketProvider";
 import { SOCKET_EVENTS } from "../../../server/socket/events";
+import { toast } from "sonner";
 
 type ContactsResponse = {
     contacts: Contact[];
@@ -36,6 +37,9 @@ const useUserContacts = () => {
         }: ContactsResponse) => {
             if (contacts) {
                 setContacts(contacts);
+            }
+            if (message) {
+                toast.success(message);
             }
             setLoading(false);
         };

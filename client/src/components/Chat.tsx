@@ -5,7 +5,7 @@ export default function ChatApp() {
     return (
         <div
             id="chat-app"
-            className="flex h-full xl:h-[90vh] w-full xl:w-[90vw]"
+            className="flex h-screen xl:h-[90vh] w-full xl:w-[90vw]"
         >
             <Sidebar />
             <MainChatArea />

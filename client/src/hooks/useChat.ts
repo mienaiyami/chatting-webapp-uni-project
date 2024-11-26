@@ -148,7 +148,7 @@ const useChat = () => {
                     displayName:
                         contact?.nickname ||
                         contact?.username ||
-                        (otherMember?.username || "") + " (not in contacts)",
+                        (otherMember?.username || "") + " (Unknown)",
                     displayPicture: otherMember?.avatarUrl || "",
                     lastMessage: chat.messages[0]
                         ? `${
@@ -174,6 +174,7 @@ const useChat = () => {
                       }${group.messages[0].text}`
                     : "Start Chatting",
                 lastMessageAt: group.messages[0]?.createdAt || null,
+                // members: group.members,
             })),
             ...contacts
                 .filter(

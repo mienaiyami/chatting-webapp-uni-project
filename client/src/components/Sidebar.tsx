@@ -49,10 +49,10 @@ export function Sidebar() {
                     </Button>
                 </Link>
                 <AddContactDialog />
-                <Button variant="ghost" size="icon">
+                {/* <Button variant="ghost" size="icon">
                     <MessageSquare className="h-5 w-5" />
                     <span className="sr-only">New Message</span>
-                </Button>
+                </Button> */}
             </div>
             <div className="p-4">
                 <Input
@@ -62,6 +62,13 @@ export function Sidebar() {
                     className="mb-4"
                 />
             </div>
+            {combinedList.length === 0 && (
+                <div className="flex-grow flex items-center justify-center">
+                    <span className="text-muted-foreground">
+                        No contacts/chat found
+                    </span>
+                </div>
+            )}
             <ScrollArea className="flex-grow">
                 {combinedList
                     .filter((e) =>
@@ -100,7 +107,10 @@ export function Sidebar() {
                                 } else {
                                     setChatOpened({
                                         ...chat,
-                                        members: [],
+                                        members:
+                                            chat.type === "chat"
+                                                ? chat?.members || []
+                                                : [],
                                     });
                                 }
                             }}

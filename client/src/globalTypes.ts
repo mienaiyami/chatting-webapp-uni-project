@@ -55,7 +55,7 @@ declare global {
         displayPicture: string;
         description: string;
         members: {
-            user: string[];
+            user: UserDetails[];
             joinedAt: Date;
         }[];
         admins: string[];
@@ -70,6 +70,7 @@ declare global {
         displayPicture: string;
         lastMessage: string;
         lastMessageAt: Date | null;
+        members?: UserDetails[];
         muted?: boolean;
     };
     type ContactListType = Omit<ChatGroupListType, "_id" | "type"> & {
