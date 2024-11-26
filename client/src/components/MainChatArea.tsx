@@ -52,9 +52,7 @@ import {
 import useUserContacts from "@/hooks/useUserContacts";
 
 const renderers: ReactMarkdownComponents = {
-    p: ({ children }) => (
-        <p className="text-accent-foreground mb-2">{children}</p>
-    ),
+    p: ({ children }) => <p className="text-accent-foreground">{children}</p>,
     strong: ({ children }) => <strong className="font-bold">{children}</strong>,
     em: ({ children }) => <em className="italic">{children}</em>,
     s: ({ children }) => <s className="line-through">{children}</s>,
@@ -105,13 +103,16 @@ const renderers: ReactMarkdownComponents = {
 };
 
 export function MainChatArea() {
-    const { messages, sendMessage, initializeMessages, resetMessages } =
-        useMessages();
+    const { messages, sendMessage, deleteMessage, editMessage } = useMessages();
     const { chatOpened } = useChatOpenedStore();
     const { updateContact } = useUserContacts();
     const userDetails = useUserDetailStore((state) => state.userDetails)!;
     const { socket } = useSocket();
     const [newMessage, setNewMessage] = useState("");
+
+    const [editingMessage, setEditingMessage] = useState<Message | null>(null);
+    const [editText, setEditText] = useState("");
+
     const [selectedForReply, setSelectedForReply] = useState<Message | null>(
         null
     );
@@ -175,7 +176,7 @@ export function MainChatArea() {
 
     if (!chatOpened)
         return (
-            <div className="flex-1 grid place-items-center w-full select-none border rounded-r-lg border-l-0 max-h-screen">
+            <div className="flex-1 grid place-items-center select-none border rounded-r-lg border-l-0 max-h-screen">
                 <p className="text-accent-foreground">
                     Select a chat/group to start chatting
                 </p>
@@ -306,33 +307,43 @@ export function MainChatArea() {
                                     : ""
                             } ${message.optimistic ? "opacity-50" : ""}`}
                         >
-                            <div className="group-hover/message:flex bg-accent/50 rounded-sm absolute right-0 top-0 hidden flex-row gap-0 items-center">
-                                <Tooltip>
-                                    <TooltipTrigger asChild>
-                                        <Button
-                                            variant="ghost"
-                                            className="w-8 h-8 p-2 rounded-none rounded-l-sm"
-                                            onClick={() => {
-                                                setSelectedForReply(message);
-                                            }}
-                                        >
-                                            <Reply className="aspect-square h-4" />
-                                            <span className="sr-only">
-                                                Reply
-                                            </span>
-                                        </Button>
-                                    </TooltipTrigger>
-                                    <TooltipContent className="text-xs px-2 py-1">
-                                        Reply
-                                    </TooltipContent>
-                                </Tooltip>
-                                {message.senderId === userDetails._id && (
-                                    <>
+                            {editingMessage?._id !== message._id && (
+                                <div className="group-hover/message:flex bg-accent/50 rounded-sm absolute right-0 top-0 hidden flex-row gap-0 items-center">
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <Button
+                                                variant="ghost"
+                                                className="w-8 h-8 p-2 rounded-none rounded-l-sm"
+                                                onClick={() => {
+                                                    setSelectedForReply(
+                                                        message
+                                                    );
+                                                }}
+                                            >
+                                                <Reply className="aspect-square h-4" />
+                                                <span className="sr-only">
+                                                    Reply
+                                                </span>
+                                            </Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent className="text-xs px-2 py-1">
+                                            Reply
+                                        </TooltipContent>
+                                    </Tooltip>
+                                    {message.senderId === userDetails._id && (
                                         <Tooltip>
                                             <TooltipTrigger asChild>
                                                 <Button
                                                     variant="ghost"
                                                     className="w-8 h-8 p-2 rounded-none"
+                                                    onClick={() => {
+                                                        setEditingMessage(
+                                                            message
+                                                        );
+                                                        setEditText(
+                                                            message.text
+                                                        );
+                                                    }}
                                                 >
                                                     <Edit2 className="aspect-square h-4" />
                                                     <span className="sr-only">
@@ -344,24 +355,23 @@ export function MainChatArea() {
                                                 Edit
                                             </TooltipContent>
                                         </Tooltip>
+                                    )}
+                                    {(message.senderId === userDetails._id ||
+                                        (chatOpened.type === "group" &&
+                                            chatOpened.admins?.some(
+                                                (admin) =>
+                                                    admin._id ===
+                                                    userDetails._id
+                                            ))) && (
                                         <Tooltip>
                                             <TooltipTrigger asChild>
                                                 <Button
                                                     variant="ghost"
                                                     className="w-8 h-8 p-2 rounded-none"
                                                     onClick={() => {
-                                                        if (
-                                                            !socket ||
-                                                            !chatOpened
-                                                        )
-                                                            return;
-                                                        socket.emit(
-                                                            SOCKET_EVENTS.DELETE_MESSAGE,
-                                                            {
-                                                                chatId: chatOpened._id,
-                                                                messageId:
-                                                                    message._id,
-                                                            }
+                                                        deleteMessage(
+                                                            chatOpened._id,
+                                                            message._id
                                                         );
                                                     }}
                                                 >
@@ -375,25 +385,25 @@ export function MainChatArea() {
                                                 Delete
                                             </TooltipContent>
                                         </Tooltip>
-                                    </>
-                                )}
-                                <Tooltip>
-                                    <TooltipTrigger asChild>
-                                        <Button
-                                            variant="ghost"
-                                            className="w-8 h-8 p-2 rounded-none rounded-r-sm"
-                                        >
-                                            <MoreHorizontal className="aspect-square h-4" />
-                                            <span className="sr-only">
-                                                More Options
-                                            </span>
-                                        </Button>
-                                    </TooltipTrigger>
-                                    <TooltipContent className="text-xs px-2 py-1">
-                                        More Options
-                                    </TooltipContent>
-                                </Tooltip>
-                            </div>
+                                    )}
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <Button
+                                                variant="ghost"
+                                                className="w-8 h-8 p-2 rounded-none rounded-r-sm"
+                                            >
+                                                <MoreHorizontal className="aspect-square h-4" />
+                                                <span className="sr-only">
+                                                    More Options
+                                                </span>
+                                            </Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent className="text-xs px-2 py-1">
+                                            More Options
+                                        </TooltipContent>
+                                    </Tooltip>
+                                </div>
+                            )}
                             {(i === 0 ||
                                 message.repliedTo ||
                                 (i > 0 &&
@@ -533,7 +543,7 @@ export function MainChatArea() {
                                     </div>
                                 </div>
                             )}
-                            <div className="flex flex-row items-start gap-1">
+                            <div className="flex flex-row items-start gap-1 w-full">
                                 <Tooltip delayDuration={1000}>
                                     <TooltipTrigger asChild>
                                         <div className="w-8 pt-2 pl-1 group-hover/message:opacity-100 opacity-0 select-none text-xs text-accent-foreground/30">
@@ -552,7 +562,7 @@ export function MainChatArea() {
                                 </Tooltip>
 
                                 <div
-                                    className={`p-2 bg-accent/50 text-accent-foreground rounded-lg max-w-[80%] break-words whitespace-pre-wrap ${
+                                    className={`p-2 bg-accent/50 text-accent-foreground rounded-lg max-w-[80%] break-words whitespace-pre-line ${
                                         i === 0 ||
                                         message.repliedTo ||
                                         (i > 0 &&
@@ -562,9 +572,78 @@ export function MainChatArea() {
                                             : "my-1"
                                     }`}
                                 >
-                                    <ReactMarkdown components={renderers}>
-                                        {message.text}
-                                    </ReactMarkdown>
+                                    {editingMessage?._id === message._id ? (
+                                        <div className="flex flex-col gap-1 w-full">
+                                            <div
+                                                role="textbox"
+                                                aria-label="Edit message"
+                                                aria-multiline="true"
+                                                contentEditable
+                                                ref={(element) => {
+                                                    if (element) {
+                                                        element.textContent =
+                                                            editText;
+                                                        element.focus();
+                                                        const range =
+                                                            document.createRange();
+                                                        const selection =
+                                                            window.getSelection();
+                                                        range.selectNodeContents(
+                                                            element
+                                                        );
+                                                        range.collapse(false);
+                                                        selection?.removeAllRanges();
+                                                        selection?.addRange(
+                                                            range
+                                                        );
+                                                    }
+                                                }}
+                                                onInput={(e) =>
+                                                    setEditText(
+                                                        e.currentTarget
+                                                            .textContent || ""
+                                                    )
+                                                }
+                                                onKeyDown={(e) => {
+                                                    if (
+                                                        e.key === "Enter" &&
+                                                        !e.shiftKey
+                                                    ) {
+                                                        e.preventDefault();
+                                                        if (editText.trim()) {
+                                                            editMessage(
+                                                                chatOpened._id,
+                                                                message._id,
+                                                                editText.trim()
+                                                            );
+                                                            setEditingMessage(
+                                                                null
+                                                            );
+                                                            setEditText("");
+                                                        }
+                                                    }
+                                                    if (e.key === "Escape") {
+                                                        setEditingMessage(null);
+                                                        setEditText("");
+                                                    }
+                                                }}
+                                                className="w-full min-h-[1.5em] p-1 focus:outline-none focus:ring-1 focus:ring-ring focus:ring-offset-1 rounded-sm"
+                                            />
+                                            <div className="flex justify-end gap-2 text-xs text-muted-foreground">
+                                                <span>
+                                                    Press Enter to save, Esc to
+                                                    cancel
+                                                </span>
+                                                <span>
+                                                    Shift + Enter for new line
+                                                </span>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <ReactMarkdown components={renderers}>
+                                            {message.text}
+                                        </ReactMarkdown>
+                                    )}
                                 </div>
                             </div>
                         </div>
@@ -616,13 +695,8 @@ export function MainChatArea() {
                 </div>
             )}
             <div className="p-4 border-t relative">
-                <div className="flex items-center">
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        className="mr-2"
-                        disabled
-                    >
+                <div className="flex items-stretch gap-2">
+                    <Button variant="ghost" size="icon" disabled>
                         <Paperclip className="h-5 w-5" />
                         <span className="sr-only">Attach File</span>
                     </Button>
@@ -681,10 +755,10 @@ export function MainChatArea() {
                             setNewMessage(input.value);
                         }}
                     />
-                    <Button onClick={handleSendMessage} className="ml-2">
+                    {/* <Button onClick={handleSendMessage} className="">
                         <Send className="h-5 w-5" />
                         <span className="sr-only">Send Message</span>
-                    </Button>
+                    </Button> */}
                 </div>
             </div>
         </div>

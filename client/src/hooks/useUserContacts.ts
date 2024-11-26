@@ -47,6 +47,7 @@ const useUserContacts = () => {
         const handleError = ({ message }: ErrorResponse) => {
             setError(message);
             setLoading(false);
+            console.log(toast.error(message));
         };
 
         socket.on(SOCKET_EVENTS.CONTACTS, handleContactsReceived);
@@ -77,7 +78,6 @@ const useUserContacts = () => {
                 note,
                 nickname,
             });
-            return { success: true };
         } catch (error: any) {
             console.error("An unexpected error occurred:", error);
             return { error: error.message || "An unexpected error occurred" };

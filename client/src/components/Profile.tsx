@@ -54,7 +54,7 @@ export default function ProfilePage() {
                     </p>
                 </CardHeader>
                 <CardFooter className="flex flex-wrap justify-center gap-2">
-                    <AddContactDialog />
+                    {/* <AddContactDialog /> */}
                     <EditProfileDialog />
                     <Button variant="outline" size="sm">
                         <Settings className="mr-2 h-4 w-4" />

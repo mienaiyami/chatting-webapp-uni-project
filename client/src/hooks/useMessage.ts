@@ -21,6 +21,10 @@ const useMessages = () => {
     );
     const setMessages = useMessagesStore((state) => state.setMessages);
     const clearMessages = useMessagesStore((state) => state.clearMessages);
+    const deleteMessage_store = useMessagesStore(
+        (state) => state.deleteMessage
+    );
+    const editMessage_store = useMessagesStore((state) => state.editMessage);
     const chatOpened = useChatOpenedStore((state) => state.chatOpened);
     const { socket } = useSocket();
 
@@ -34,6 +38,25 @@ const useMessages = () => {
     const resetMessages = useCallback(() => {
         clearMessages();
     }, [clearMessages]);
+
+    const deleteMessage = useCallback(
+        (chatId: string, messageId: string) => {
+            if (!socket) return;
+            socket.emit(SOCKET_EVENTS.DELETE_MESSAGE, { chatId, messageId });
+        },
+        [socket]
+    );
+    const editMessage = useCallback(
+        (chatId: string, messageId: string, text: string) => {
+            if (!socket) return;
+            socket.emit(SOCKET_EVENTS.EDIT_MESSAGE, {
+                chatId,
+                messageId,
+                text,
+            });
+        },
+        [socket]
+    );
 
     const sendMessage = useCallback(
         async (content: SendMessageContent) => {
@@ -74,14 +97,26 @@ const useMessages = () => {
             clearMessages();
         };
 
+        const handleMessageDeleted = ({ messageId }: { messageId: string }) => {
+            deleteMessage_store(messageId);
+        };
+
+        const handleMessageEdited = (updatedMessage: Message) => {
+            editMessage_store(updatedMessage);
+        };
+
         socket.on(SOCKET_EVENTS.NEW_MESSAGE, messageListener);
         socket.on(SOCKET_EVENTS.CHAT_CLEARED, chatClearedListener);
+        socket.on(SOCKET_EVENTS.MESSAGE_DELETED, handleMessageDeleted);
+        socket.on(SOCKET_EVENTS.MESSAGE_EDITED, handleMessageEdited);
 
         return () => {
             socket.off(SOCKET_EVENTS.NEW_MESSAGE, messageListener);
             socket.off(SOCKET_EVENTS.CHAT_CLEARED, chatClearedListener);
+            socket.off(SOCKET_EVENTS.MESSAGE_DELETED, handleMessageDeleted);
+            socket.off(SOCKET_EVENTS.MESSAGE_EDITED, handleMessageEdited);
         };
-    }, [socket, confirmOrAddMessage, clearMessages]);
+    }, [socket, confirmOrAddMessage, clearMessages, setMessages]);
 
     useLayoutEffect(() => {
         if (!socket) return;
@@ -111,6 +146,8 @@ const useMessages = () => {
         sendMessage,
         initializeMessages,
         resetMessages,
+        deleteMessage,
+        editMessage,
     };
 };
 

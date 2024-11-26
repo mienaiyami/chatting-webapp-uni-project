@@ -24,7 +24,13 @@ export const getUserDetails = async () => {
     });
     const json = await response.json();
     if (response.ok) return json.user;
-    return null;
+    if (response.status === 401) {
+        throw new Error("Unauthorized");
+    }
+    if (json.message) {
+        throw new Error(json.message);
+    }
+    throw new Error("Failed to fetch user details");
 };
 
 export const formatDate = (date: Date | string): string => {

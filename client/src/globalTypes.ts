@@ -88,6 +88,7 @@ declare global {
         muted?: boolean;
         /**this get filled later, not on `setChatOpened` */
         members: UserDetails[];
+        admins?: UserDetails[];
     };
 
     // eslint-disable-next-line @typescript-eslint/no-namespace

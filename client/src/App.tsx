@@ -9,7 +9,6 @@ function App() {
     const { setUserDetails, userDetails } = useUserDetailStore();
     useLayoutEffect(() => {
         if (!document.cookie.includes("token")) {
-            //todo check
             window.location.href = "/signin";
         } else {
             getUserDetails()
@@ -19,7 +18,13 @@ function App() {
                     }
                 })
                 .catch((error) => {
-                    console.error(error);
+                    if (error.message === "Unauthorized") {
+                        localStorage.removeItem("token");
+                        document.cookie = "";
+                        // window.location.href = "/signin";
+                    } else {
+                        toast.error(error.message);
+                    }
                 });
         }
     }, []);

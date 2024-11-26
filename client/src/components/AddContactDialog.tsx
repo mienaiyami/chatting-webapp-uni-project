@@ -16,6 +16,7 @@ import useUserDetailStore from "@/store/userDetails";
 import { toast } from "sonner";
 import searchUsers from "@/requests/searchUsers";
 import useUserContacts from "@/hooks/useUserContacts";
+import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip";
 
 export default function AddContactDialog() {
     //todo use some sort of cache?
@@ -43,12 +44,19 @@ export default function AddContactDialog() {
 
     return (
         <Dialog>
-            <DialogTrigger asChild>
-                <Button variant="ghost" size={"icon"}>
-                    <UserPlus className="h-5 w-5" />
-                    <span className="sr-only">Add Contact</span>
-                </Button>
-            </DialogTrigger>
+            <Tooltip>
+                <TooltipTrigger asChild>
+                    <DialogTrigger asChild>
+                        <Button variant="ghost" size={"icon"}>
+                            <UserPlus className="h-5 w-5" />
+                            <span className="sr-only">Add Contact</span>
+                        </Button>
+                    </DialogTrigger>
+                </TooltipTrigger>
+                <TooltipContent className="text-xs px-2 py-1">
+                    Add Contact
+                </TooltipContent>
+            </Tooltip>
             <DialogContent className="sm:max-w-[425px] select-none">
                 <DialogHeader>
                     <DialogTitle>Add Contact</DialogTitle>
@@ -75,19 +83,7 @@ export default function AddContactDialog() {
                                         variant="ghost"
                                         className="flex w-full space-x-2 items-center h-full p-2 rounded-md hover:bg-accent"
                                         onClick={() => {
-                                            toast.promise(
-                                                updateContact(user._id, "add"),
-                                                {
-                                                    loading:
-                                                        "Adding contact...",
-                                                    success: (data) =>
-                                                        data?.message ||
-                                                        "Updated.",
-                                                    error: (error) =>
-                                                        error?.message ||
-                                                        "An unexpected error occurred",
-                                                }
-                                            );
+                                            updateContact(user._id, "add");
                                         }}
                                     >
                                         <Avatar className="h-8 w-8">
@@ -125,21 +121,9 @@ export default function AddContactDialog() {
                                             size="sm"
                                             className="h-[3.2rem]"
                                             onClick={() => {
-                                                toast.promise(
-                                                    updateContact(
-                                                        user._id,
-                                                        "remove"
-                                                    ),
-                                                    {
-                                                        loading:
-                                                            "Removing contact...",
-                                                        success: (data) =>
-                                                            data?.message ||
-                                                            "Updated. ",
-                                                        error: (error) =>
-                                                            error?.message ||
-                                                            "An unexpected error occurred",
-                                                    }
+                                                updateContact(
+                                                    user._id,
+                                                    "remove"
                                                 );
                                             }}
                                         >

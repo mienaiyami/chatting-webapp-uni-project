@@ -283,6 +283,9 @@ io.on("connection", async (socket) => {
                 if (!mongoose.Types.ObjectId.isValid(targetUserId)) {
                     throw new Error("Invalid User ID format");
                 }
+                if (targetUserId === userId) {
+                    throw new Error("Cannot add self as contact");
+                }
 
                 let update, message;
                 if (action === "remove") {
@@ -335,10 +338,10 @@ io.on("connection", async (socket) => {
                     message,
                 });
 
-                socket.to(targetUserId).emit(SOCKET_EVENTS.CONTACT_UPDATED, {
-                    userId,
-                    action,
-                });
+                // socket.to(targetUserId).emit(SOCKET_EVENTS.CONTACT_UPDATED, {
+                //     userId,
+                //     action,
+                // });
             } catch (error) {
                 socket.emit("error", { message: error.message });
             }
@@ -366,6 +369,110 @@ io.on("connection", async (socket) => {
             socket.emit("error", { message: error.message });
         }
     });
+
+    socket.on(
+        SOCKET_EVENTS.DELETE_MESSAGE,
+        async ({
+            chatId,
+            messageId,
+        }: {
+            chatId: string;
+            messageId: string;
+        }) => {
+            try {
+                if (
+                    !mongoose.Types.ObjectId.isValid(chatId) ||
+                    !mongoose.Types.ObjectId.isValid(messageId)
+                ) {
+                    return;
+                }
+
+                const chat = await Chat.findOne({
+                    _id: chatId,
+                    members: userId,
+                });
+
+                if (!chat) return;
+
+                const message = await ChatMessage.findOne({
+                    _id: messageId,
+                    chatId,
+                    senderId: userId,
+                });
+
+                if (!message) return;
+
+                await ChatMessage.findByIdAndUpdate(messageId, {
+                    deletedAt: new Date(),
+                });
+
+                io.to(chat.members.map((memberId) => memberId.toString())).emit(
+                    SOCKET_EVENTS.MESSAGE_DELETED,
+                    {
+                        chatId,
+                        messageId,
+                    }
+                );
+            } catch (error) {
+                socket.emit("error", { message: error.message });
+            }
+        }
+    );
+    socket.on(
+        SOCKET_EVENTS.EDIT_MESSAGE,
+        async ({
+            chatId,
+            messageId,
+            text,
+        }: {
+            chatId: string;
+            messageId: string;
+            text: string;
+        }) => {
+            try {
+                if (
+                    !mongoose.Types.ObjectId.isValid(chatId) ||
+                    !mongoose.Types.ObjectId.isValid(messageId)
+                ) {
+                    return;
+                }
+
+                const chat = await Chat.findOne({
+                    _id: chatId,
+                    members: userId,
+                });
+
+                if (!chat) return;
+
+                const message = await ChatMessage.findOne({
+                    _id: messageId,
+                    chatId,
+                    senderId: userId,
+                });
+
+                if (!message) return;
+
+                const updatedMessage = await ChatMessage.findByIdAndUpdate(
+                    messageId,
+                    {
+                        text,
+                        modifiedAt: new Date(),
+                    },
+                    { new: true }
+                ).populate("repliedTo");
+
+                //todo check what happens when repliedTo message is edited, does it show up in chat
+                io.to(chat.members.map((memberId) => memberId.toString())).emit(
+                    SOCKET_EVENTS.MESSAGE_EDITED,
+                    {
+                        ...updatedMessage.toJSON(),
+                    }
+                );
+            } catch (error) {
+                socket.emit("error", { message: error.message });
+            }
+        }
+    );
 });
 
 export { app, server, io };
