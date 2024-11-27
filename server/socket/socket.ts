@@ -12,10 +12,22 @@ import Chat from "../models/Chat";
 import ChatMessage from "../models/ChatMessage";
 import UserContacts, { FormattedContact } from "../models/UserContacts";
 import Group from "../models/Group";
+import path from "path";
+import fs from "fs";
+
+const UPLOAD_DIR = path.join(process.cwd(), "/storage/uploads");
+if (!fs.existsSync(UPLOAD_DIR)) {
+    fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+}
+
+const MAX_FILE_SIZE = 100 * 1024 * 1024;
 
 const app = express();
 app.use(cookieParser());
 app.use(express.json());
+
+app.use("/uploads", express.static(UPLOAD_DIR));
+
 const corsOptions = {
     origin: "*",
     // origin: config.FRONTEND_URL,
@@ -25,6 +37,7 @@ app.use(cors(corsOptions));
 const server = createServer(app);
 const io = new Server(server, {
     cors: corsOptions,
+    maxHttpBufferSize: MAX_FILE_SIZE,
 });
 io.use(socketAuth);
 
@@ -46,16 +59,6 @@ io.on("connection", async (socket) => {
     }
     socket.onAny((a) => {
         console.log(`EVENT: ${a} FROM : ${userId}`);
-    });
-    socket.on(SOCKET_EVENTS.GET_ONLINE_CONTACTS, async () => {
-        const userContacts = await UserContacts.findOne({ user: userId });
-        if (userContacts) {
-            const onlineContactIds = userContacts.contacts
-                .map((contact) => contact.userId.toString())
-                .filter((contactId) => onlineUsers.has(contactId));
-
-            socket.emit(SOCKET_EVENTS.ONLINE_CONTACTS, { onlineContactIds });
-        }
     });
 
     await User.findByIdAndUpdate(userId, { lastSeen: new Date() });
@@ -83,47 +86,132 @@ io.on("connection", async (socket) => {
         });
     });
 
+    socket.on(SOCKET_EVENTS.GET_ONLINE_CONTACTS, async () => {
+        const userContacts = await UserContacts.findOne({ user: userId });
+        if (userContacts) {
+            const onlineContactIds = userContacts.contacts
+                .map((contact) => contact.userId.toString())
+                .filter((contactId) => onlineUsers.has(contactId));
+
+            socket.emit(SOCKET_EVENTS.ONLINE_CONTACTS, { onlineContactIds });
+        }
+    });
     socket.on(
         SOCKET_EVENTS.NEW_MESSAGE,
-        async (data: {
-            chatId: string;
-            text: string;
-            tempId?: string;
-            repliedTo?: string;
-        }) => {
-            if (!mongoose.Types.ObjectId.isValid(data.chatId)) return;
-            const chat = await Chat.findOne({
-                _id: data.chatId,
-                members: userId,
-            });
-            if (!chat) return;
+        async (
+            data: {
+                chatId: string;
+                text: string;
+                tempId?: string;
+                repliedTo?: string;
+                attachment?: {
+                    fType: "image" | "video" | "audio" | "file";
+                    name: string;
+                    mimeType?: string;
+                    size?: number;
+                };
+            },
+            file: Buffer | null
+        ) => {
+            let filePath: string | null = null;
+            try {
+                const { chatId, text, tempId, repliedTo, attachment } = data;
 
-            const message = await ChatMessage.create({
-                chatId: data.chatId,
-                senderId: userId,
-                text: data.text,
-                repliedTo: data.repliedTo
-                    ? new mongoose.Types.ObjectId(data.repliedTo)
-                    : null,
-            });
-            await message.populate("repliedTo");
-            await Chat.findByIdAndUpdate(data.chatId, {
-                $push: { messages: message._id },
-            });
+                if (!mongoose.Types.ObjectId.isValid(chatId)) return;
+                const chat = await Chat.findOne({
+                    _id: chatId,
+                    members: userId,
+                });
+                if (!chat) {
+                    socket.emit("error", {
+                        message: "Chat not found or access denied.",
+                    });
+                    return;
+                }
+                let attachmentUrl: string | null = null;
+                let mimeType: string | null = null;
+                let size: number | null = null;
+                if (attachment && file) {
+                    // const allowedTypes = [
+                    //     "image/",
+                    //     "video/",
+                    //     "audio/",
+                    //     "application/",
+                    // ];
+                    // const isValidType = allowedTypes.some((type) =>
+                    //     attachment.mimeType.startsWith(type)
+                    // );
+                    // if (!isValidType) {
+                    //     socket.emit("error", {
+                    //         message: "Unsupported file type.",
+                    //     });
+                    //     return;
+                    // }
 
-            socket.emit(SOCKET_EVENTS.NEW_MESSAGE, {
-                ...message.toJSON(),
-                tempId: data.tempId,
-            });
+                    if (attachment.size > MAX_FILE_SIZE) {
+                        socket.emit("error", {
+                            message: "File size exceeds the limit of 100MB.",
+                        });
+                        return;
+                    }
 
-            chat.members.forEach((memberId) => {
-                const memberIdString = memberId.toString();
-                if (memberIdString !== userId) {
-                    socket.to(memberIdString).emit(SOCKET_EVENTS.NEW_MESSAGE, {
+                    mimeType = attachment.mimeType;
+                    size = attachment.size;
+
+                    const fileExt = path.extname(attachment.name);
+                    const uniqueFileName = `${globalThis.crypto.randomUUID()}${fileExt}`;
+                    filePath = path.join(UPLOAD_DIR, uniqueFileName);
+                    fs.writeFileSync(filePath, file);
+
+                    attachmentUrl = `/uploads/${uniqueFileName}`;
+                }
+                const message = await ChatMessage.create({
+                    chatId: chatId,
+                    senderId: userId,
+                    text: text || attachment.name,
+                    repliedTo: repliedTo
+                        ? new mongoose.Types.ObjectId(repliedTo)
+                        : null,
+                    attachment: attachment
+                        ? {
+                              fType: attachment.fType,
+                              url: attachmentUrl || null,
+                              mimeType: mimeType,
+                              size: size,
+                              name: attachment.name,
+                          }
+                        : null,
+                });
+                await message.populate("repliedTo");
+
+                await Chat.findByIdAndUpdate(chatId, {
+                    $push: { messages: message._id },
+                });
+
+                socket.emit(SOCKET_EVENTS.NEW_MESSAGE, {
+                    ...message.toJSON(),
+                    tempId: tempId || null,
+                });
+
+                socket
+                    .to(
+                        chat.members
+                            .filter(
+                                (memberId) => memberId.toString() !== userId
+                            )
+                            .map((memberId) => memberId.toString())
+                    )
+                    .emit(SOCKET_EVENTS.NEW_MESSAGE, {
                         ...message.toJSON(),
                     });
+            } catch (error) {
+                if (filePath) {
+                    if (fs.existsSync(filePath)) {
+                        fs.unlinkSync(filePath);
+                    }
                 }
-            });
+                socket.emit("error", { message: error.message });
+            }
         }
     );
 

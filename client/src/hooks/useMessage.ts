@@ -9,8 +9,16 @@ interface SendMessageContent {
     text: string;
     senderId: string;
     repliedTo: Message | null;
+    attachment?: File;
 }
-
+const getFileType = (
+    mimeType: string
+): NonNullable<Message["attachment"]>["fType"] => {
+    if (mimeType.startsWith("image/")) return "image";
+    if (mimeType.startsWith("video/")) return "video";
+    if (mimeType.startsWith("audio/")) return "audio";
+    return "file";
+};
 const useMessages = () => {
     const messages = useMessagesStore((state) => state.messages);
     const addOptimisticMessage = useMessagesStore(
@@ -61,10 +69,23 @@ const useMessages = () => {
     const sendMessage = useCallback(
         async (content: SendMessageContent) => {
             const tempId = `temp-${window.crypto.randomUUID()}`;
+            const attachment = content.attachment
+                ? {
+                      // placeholder values; will be updated after server processes the file
+                      fType: getFileType(content.attachment.type),
+                      url: "", // to be updated
+                      mimeType: content.attachment.type,
+                      size: content.attachment.size,
+                      name: content.attachment.name,
+                  }
+                : null;
             const tempMessage: OptimisticMessage = {
                 _id: tempId,
-                ...content,
-                mediaUrl: "",
+                chatId: content.chatId,
+                senderId: content.senderId,
+                text: content.text,
+                repliedTo: content.repliedTo,
+                attachment,
                 tempId,
 
                 //will be updated when server confirms, not sent to server, just for optimistic ui
@@ -75,12 +96,27 @@ const useMessages = () => {
 
             addOptimisticMessage(tempMessage);
 
-            socket?.emit(SOCKET_EVENTS.NEW_MESSAGE, {
-                chatId: content.chatId,
-                text: content.text,
-                repliedTo: content.repliedTo?._id,
-                tempId,
-            });
+            if (content.attachment) {
+                socket?.emit(
+                    SOCKET_EVENTS.NEW_MESSAGE,
+                    {
+                        chatId: content.chatId,
+                        text: content.text,
+                        repliedTo: content.repliedTo?._id,
+                        tempId,
+                        attachment,
+                    },
+                    content.attachment
+                );
+            } else {
+                socket?.emit(SOCKET_EVENTS.NEW_MESSAGE, {
+                    chatId: content.chatId,
+                    text: content.text,
+                    repliedTo: content.repliedTo?._id,
+                    tempId,
+                    attachment: null,
+                });
+            }
         },
         [socket, addOptimisticMessage]
     );

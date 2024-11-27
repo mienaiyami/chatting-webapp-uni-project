@@ -22,6 +22,7 @@ router.get("/userDetails", userDetails);
 router.get("/searchUser", searchUsers);
 
 router.post("/updateProfile", upload.single("avatar"), updateUserDetails);
+
 router.get("/images/avatar/:filename", (req, res) => {
     res.sendFile(
         path.join(process.cwd(), `/storage/avatar/${req.params.filename}`)

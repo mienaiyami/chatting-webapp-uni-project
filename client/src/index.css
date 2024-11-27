@@ -110,4 +110,16 @@
             @apply grid place-items-center h-screen w-screen;
         }
     }
+    em-emoji-picker {
+        @apply select-none shadow-sm border;
+        --rgb-accent: from hsl(var(--ring)) r g b;
+        --font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+        --rgb-background: from hsl(var(--background)) r g b;
+        --shadow: var(--tw-ring-offset-shadow, 0 0 #0000),
+            var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow);
+        --rgb-input: from hsl(var(--input)) r g b;
+        --rgb-color: from hsl(var(--muted-foreground)) r g b;
+        --background-rgb: 0, 0, 255;
+        /* --color-border: rgb(var(--input)); */
+    }
 }

@@ -13,7 +13,13 @@ declare global {
         chatId: string;
         senderId: string;
         text: string;
-        mediaUrl: string;
+        attachment?: {
+            fType: "image" | "video" | "audio" | "file";
+            url: string;
+            mimeType: string;
+            size: number;
+            name: string;
+        } | null;
         /**only send id to backend, while fetching get it pre-populated with message so
          * dont need to find by id
          */

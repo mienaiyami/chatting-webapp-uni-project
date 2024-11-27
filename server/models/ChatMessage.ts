@@ -1,4 +1,4 @@
-import mongoose, { now } from "mongoose";
+import mongoose from "mongoose";
 
 const chatMessageSchema = new mongoose.Schema(
     {
@@ -34,9 +34,28 @@ const chatMessageSchema = new mongoose.Schema(
             type: String,
             required: true,
         },
-        mediaUrl: {
-            type: String,
-            default: "",
+        attachment: {
+            fType: {
+                type: String,
+                enum: ["image", "video", "audio", "file"],
+                default: null,
+            },
+            url: {
+                type: String,
+                default: null,
+            },
+            size: {
+                type: Number,
+                default: null,
+            },
+            mimeType: {
+                type: String,
+                default: null,
+            },
+            name: {
+                type: String,
+                default: null,
+            },
         },
         deletedAt: {
             type: Date,

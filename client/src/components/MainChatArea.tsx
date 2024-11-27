@@ -102,6 +102,13 @@ const renderers: ReactMarkdownComponents = {
     ),
 };
 
+function formatFileSize(bytes: number): string {
+    const sizes = ["Bytes", "KB", "MB", "GB"];
+    if (bytes === 0) return "0 Bytes";
+    const i = Math.floor(Math.log(bytes) / Math.log(1024));
+    return `${parseFloat((bytes / Math.pow(1024, i)).toFixed(2))} ${sizes[i]}`;
+}
+
 export function MainChatArea() {
     const { messages, sendMessage, deleteMessage, editMessage } = useMessages();
     const { chatOpened } = useChatOpenedStore();
@@ -111,7 +118,7 @@ export function MainChatArea() {
     const [newMessage, setNewMessage] = useState("");
 
     const [editingMessage, setEditingMessage] = useState<Message | null>(null);
-    const [editText, setEditText] = useState("");
+    // const [editText, setEditText] = useState("");
 
     const [selectedForReply, setSelectedForReply] = useState<Message | null>(
         null
@@ -119,23 +126,42 @@ export function MainChatArea() {
     const scrollAreaRef = useRef<HTMLDivElement>(null);
     const msgInputRef = useRef<HTMLTextAreaElement>(null);
 
+    const [selectedFile, setSelectedFile] = useState<File | null>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
+
     useEffect(() => {
         if (msgInputRef.current) {
             msgInputRef.current.style.height = "auto";
             msgInputRef.current.style.height = `${msgInputRef.current.scrollHeight}px`;
+            if (editingMessage) {
+                setEditingMessage(null);
+                msgInputRef.current.focus();
+            }
         }
     }, [newMessage]);
 
     const handleSendMessage = () => {
-        if (chatOpened && newMessage.trim()) {
-            sendMessage({
-                chatId: chatOpened._id,
-                senderId: userDetails._id,
-                text: newMessage.trim(),
-                repliedTo: selectedForReply,
-            });
-            setNewMessage("");
-            setSelectedForReply(null);
+        if (chatOpened && (newMessage.trim() || selectedFile)) {
+            if (selectedFile) {
+                sendMessage({
+                    chatId: chatOpened._id,
+                    senderId: userDetails._id,
+                    text: newMessage.trim() || selectedFile.name || "",
+                    repliedTo: selectedForReply,
+                    attachment: selectedFile,
+                });
+                setNewMessage("");
+                setSelectedFile(null);
+            } else {
+                sendMessage({
+                    chatId: chatOpened._id,
+                    senderId: userDetails._id,
+                    text: newMessage.trim(),
+                    repliedTo: selectedForReply,
+                });
+                setNewMessage("");
+                setSelectedForReply(null);
+            }
         }
     };
 
@@ -173,6 +199,25 @@ export function MainChatArea() {
             behavior: "smooth",
         });
     }, [messages]);
+
+    const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            if (file.size > 100 * 1024 * 1024) {
+                toast.error("File too large to upload. Limit is 100MB");
+                return;
+            }
+            setSelectedFile(file);
+        }
+    };
+
+    const triggerFileInput = () => {
+        fileInputRef.current?.click();
+    };
+
+    const handleRemoveFile = () => {
+        setSelectedFile(null);
+    };
 
     if (!chatOpened)
         return (
@@ -340,9 +385,9 @@ export function MainChatArea() {
                                                         setEditingMessage(
                                                             message
                                                         );
-                                                        setEditText(
-                                                            message.text
-                                                        );
+                                                        // setEditText(
+                                                        //     message.text
+                                                        // );
                                                     }}
                                                 >
                                                     <Edit2 className="aspect-square h-4" />
@@ -581,8 +626,9 @@ export function MainChatArea() {
                                                 contentEditable
                                                 ref={(element) => {
                                                     if (element) {
+                                                        //todo fix caret position
                                                         element.textContent =
-                                                            editText;
+                                                            editingMessage.text;
                                                         element.focus();
                                                         const range =
                                                             document.createRange();
@@ -596,35 +642,54 @@ export function MainChatArea() {
                                                         selection?.addRange(
                                                             range
                                                         );
+                                                        // element.textContent =
+                                                        //     editText;
+                                                        // element.focus();
+                                                        // const range =
+                                                        //     document.createRange();
+                                                        // const selection =
+                                                        //     window.getSelection();
+                                                        // range.selectNodeContents(
+                                                        //     element
+                                                        // );
+                                                        // range.collapse(false);
+                                                        // selection?.removeAllRanges();
+                                                        // selection?.addRange(
+                                                        //     range
+                                                        // );
                                                     }
                                                 }}
-                                                onInput={(e) =>
-                                                    setEditText(
-                                                        e.currentTarget
-                                                            .textContent || ""
-                                                    )
-                                                }
+                                                // onInput={(e) =>
+                                                //     setEditText(
+                                                //         e.currentTarget
+                                                //             .textContent || ""
+                                                //     )
+                                                // }
                                                 onKeyDown={(e) => {
                                                     if (
                                                         e.key === "Enter" &&
                                                         !e.shiftKey
                                                     ) {
                                                         e.preventDefault();
-                                                        if (editText.trim()) {
+                                                        const text =
+                                                            e.currentTarget
+                                                                .textContent;
+
+                                                        if (text?.trim()) {
                                                             editMessage(
                                                                 chatOpened._id,
                                                                 message._id,
-                                                                editText.trim()
+                                                                text.trim()
                                                             );
                                                             setEditingMessage(
                                                                 null
                                                             );
-                                                            setEditText("");
+                                                            // setEditText("");
                                                         }
                                                     }
                                                     if (e.key === "Escape") {
                                                         setEditingMessage(null);
-                                                        setEditText("");
+                                                        // setEditText("");
                                                     }
                                                 }}
                                                 className="w-full min-h-[1.5em] p-1 focus:outline-none focus:ring-1 focus:ring-ring focus:ring-offset-1 rounded-sm"
@@ -643,6 +708,78 @@ export function MainChatArea() {
                                         <ReactMarkdown components={renderers}>
                                             {message.text}
                                         </ReactMarkdown>
+                                    )}
+                                    {message.attachment && (
+                                        <div className="mt-2">
+                                            <a
+                                                href={message.attachment.url}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                            >
+                                                {message.attachment.fType ===
+                                                "image" ? (
+                                                    <img
+                                                        src={
+                                                            message.attachment
+                                                                .url
+                                                        }
+                                                        alt={
+                                                            message.attachment
+                                                                .name
+                                                        }
+                                                        className="max-w-sm rounded-md"
+                                                    />
+                                                ) : message.attachment.fType ===
+                                                  "video" ? (
+                                                    <video
+                                                        src={
+                                                            message.attachment
+                                                                .url
+                                                        }
+                                                        controls
+                                                        className="max-w-sm rounded-md"
+                                                    />
+                                                ) : message.attachment.fType ===
+                                                  "audio" ? (
+                                                    <audio
+                                                        src={
+                                                            message.attachment
+                                                                .url
+                                                        }
+                                                        controls
+                                                        className="w-full"
+                                                    />
+                                                ) : (
+                                                    <a
+                                                        href={
+                                                            message.attachment
+                                                                .url
+                                                        }
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="flex items-center gap-2 text-blue-500 hover:underline"
+                                                    >
+                                                        <Paperclip className="h-4 w-4" />
+                                                        <span>
+                                                            {
+                                                                message
+                                                                    .attachment
+                                                                    .name
+                                                            }
+                                                        </span>
+                                                        <span className="text-xs text-muted-foreground">
+                                                            (
+                                                            {formatFileSize(
+                                                                message
+                                                                    .attachment
+                                                                    .size
+                                                            )}
+                                                            )
+                                                        </span>
+                                                    </a>
+                                                )}
+                                            </a>
+                                        </div>
                                     )}
                                 </div>
                             </div>
@@ -694,12 +831,42 @@ export function MainChatArea() {
                     </div>
                 </div>
             )}
+            {selectedFile && (
+                <div className="p-2 border-t flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium">
+                            {selectedFile.name} (
+                            {formatFileSize(selectedFile.size)})
+                        </span>
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={handleRemoveFile}
+                        >
+                            <X className="h-4 w-4" />
+                            <span className="sr-only">Remove File</span>
+                        </Button>
+                    </div>
+                </div>
+            )}
             <div className="p-4 border-t relative">
                 <div className="flex items-stretch gap-2">
-                    <Button variant="ghost" size="icon" disabled>
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={triggerFileInput}
+                    >
                         <Paperclip className="h-5 w-5" />
                         <span className="sr-only">Attach File</span>
                     </Button>
+                    <input
+                        hidden
+                        type="file"
+                        accept="*"
+                        ref={fileInputRef}
+                        className="hidden"
+                        onChange={handleFileSelect}
+                    />
                     <Textarea
                         placeholder="Type a message..."
                         ref={msgInputRef}
@@ -721,7 +888,21 @@ export function MainChatArea() {
                         onPaste={(e) => {
                             e.preventDefault();
                             if (e.clipboardData.types.includes("Files")) {
-                                toast.error("File upload not supported yet.");
+                                try {
+                                    const file = e.clipboardData.files[0];
+                                    if (file.size > 100 * 1024 * 1024) {
+                                        toast.error(
+                                            "File too large to upload. Limit is 100MB"
+                                        );
+                                        return;
+                                    }
+                                    setSelectedFile(file);
+                                } catch (error) {
+                                    console.error(error);
+                                    toast.error(
+                                        "Failed to upload file from clipboard"
+                                    );
+                                }
                                 return;
                             }
                             if (e.clipboardData.types.includes("text/html")) {

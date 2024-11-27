@@ -4,14 +4,12 @@ import { SOCKET_EVENTS } from "@/socket/events";
 import useUserDetailStore from "@/store/userDetails";
 import useChatStore from "@/store/chatStore";
 import useUserContacts from "@/hooks/useUserContacts";
-import useChatOpenedStore from "@/store/chatOpened";
 import { toast } from "sonner";
 
 const useChat = () => {
     const { socket } = useSocket();
     const { userDetails } = useUserDetailStore();
     const { contacts } = useUserContacts();
-    const { setChatOpened } = useChatOpenedStore();
     const {
         chats,
         groups,
