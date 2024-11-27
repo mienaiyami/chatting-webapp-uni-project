@@ -29,7 +29,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({
     const [isConnected, setIsConnected] = useState(false);
     const [onlineContacts, setOnlineContacts] = useState<string[]>([]);
     const token = useTokenStore((e) => e.token);
-    const { chatOpened, setChatOpened } = useChatOpenedStore();
+    const { chatOpened } = useChatOpenedStore();
 
     useLayoutEffect(() => {
         if (!token) return;

@@ -56,8 +56,8 @@ export default function SignIn() {
             if (json.token) {
                 toast.success("Signed in successfully");
                 localStorage.setItem("token", json.token);
-                // navigate("/");
-                window.location.href = "/";
+                navigate("/");
+                // window.location.href = "/";
             }
         } catch (error) {
             if (error instanceof Error) toast.error(error.message);

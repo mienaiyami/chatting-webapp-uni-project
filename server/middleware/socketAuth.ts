@@ -1,6 +1,7 @@
 import { Socket } from "socket.io";
 import jwt from "jsonwebtoken";
 import mongoose from "mongoose";
+import { JWT_SECRET } from "../config/config";
 
 export const socketAuth = (socket: Socket, next: (err?: Error) => void) => {
     const token = socket.handshake.auth.token;
@@ -10,7 +11,7 @@ export const socketAuth = (socket: Socket, next: (err?: Error) => void) => {
     }
 
     try {
-        const { userId } = jwt.verify(token, process.env.JWT_SECRET!) as {
+        const { userId } = jwt.verify(token, JWT_SECRET) as {
             userId: string;
         };
         if (!mongoose.Types.ObjectId.isValid(userId))

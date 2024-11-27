@@ -4,11 +4,14 @@ import { SOCKET_EVENTS } from "@/socket/events";
 import useUserDetailStore from "@/store/userDetails";
 import useChatStore from "@/store/chatStore";
 import useUserContacts from "@/hooks/useUserContacts";
+import useChatOpenedStore from "@/store/chatOpened";
+import { toast } from "sonner";
 
 const useChat = () => {
     const { socket } = useSocket();
     const { userDetails } = useUserDetailStore();
     const { contacts } = useUserContacts();
+    const { setChatOpened } = useChatOpenedStore();
     const {
         chats,
         groups,
@@ -46,19 +49,15 @@ const useChat = () => {
         async (userId2: string) => {
             if (!socket) return null;
             return new Promise<Chat | null>((resolve, reject) => {
-                //todo test
                 socket.emit(
                     SOCKET_EVENTS.CREATE_CHAT,
                     { userId2 },
                     (response: { chat?: Chat; error?: string }) => {
                         if (response.error) {
                             setError(response.error);
+                            toast.error(response.error);
                             reject(null);
-                        } else {
-                            setChats((prevChats) => [
-                                ...prevChats,
-                                response.chat!,
-                            ]);
+                        } else if (response.chat) {
                             resolve(response.chat!);
                         }
                     }
@@ -95,17 +94,21 @@ const useChat = () => {
             chats: Chat[];
             groups: Group[];
         }) => {
-            if (loading) setLoading(false);
+            setLoading(false);
             setChats(data.chats);
             setGroups(data.groups);
         };
-
         const handleChatCreated = (data: { chat: Chat }) => {
-            setChats((prevChats) => [...prevChats, data.chat]);
+            if (data.chat) {
+                setChats((prevChats) => [...prevChats, data.chat]);
+                // setChatOpened();
+            } else {
+                toast.error("Failed to create chat");
+            }
         };
 
         const handleError = (data: { message: any }) => {
-            if (loading) setLoading(false);
+            setLoading(false);
             setError(data.message);
         };
 
@@ -202,6 +205,7 @@ const useChat = () => {
         });
 
         setCombinedList(list);
+        setLoading(false);
     }, [chats, groups, contacts, userDetails]);
 
     useEffect(() => {

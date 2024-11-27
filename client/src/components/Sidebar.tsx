@@ -110,6 +110,7 @@ export function Sidebar() {
                                         const newChat = await createChat(
                                             chat.userId
                                         );
+                                        console.log(newChat);
                                         if (newChat) {
                                             setChatOpened({
                                                 ...chat,

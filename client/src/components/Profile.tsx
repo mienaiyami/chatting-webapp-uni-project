@@ -15,6 +15,7 @@ import { EditProfileDialog } from "./EditProfileDialog";
 import useUserDetailStore from "@/store/userDetails";
 import AddContactDialog from "./AddContactDialog";
 import { useNavigate } from "react-router-dom";
+import { toast } from "sonner";
 
 export default function ProfilePage() {
     const [mounted, setMounted] = useState(false);
@@ -25,8 +26,9 @@ export default function ProfilePage() {
         setMounted(true);
     }, []);
     if (!userDetails) {
-        window.location.href = "/";
-        // navigate("/");
+        // window.location.href = "/";
+        toast.error("Unauthorized");
+        navigate("/");
     }
     if (!mounted || !userDetails) {
         return null;

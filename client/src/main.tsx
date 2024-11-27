@@ -1,47 +1,28 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import { createBrowserRouter, Outlet, RouterProvider } from "react-router-dom";
+import { BrowserRouter, Routes } from "react-router-dom";
 import App from "./App.tsx";
 import "./index.css";
 import SignIn from "./pages/SignIn.tsx";
 import SignUp from "./pages/SignUp.tsx";
 import ErrorPage from "./error-page.tsx";
 import ProfilePage from "./components/Profile.tsx";
-import { Toaster } from "./components/ui/sonner.tsx";
-import { ThemeProvider } from "next-themes";
-
-const router = createBrowserRouter([
-    {
-        element: (
-            <ThemeProvider attribute="class" defaultTheme="system">
-                <Outlet />
-                <Toaster richColors duration={10000} />
-            </ThemeProvider>
-        ),
-        errorElement: <ErrorPage />,
-        children: [
-            {
-                path: "/",
-                element: <App />,
-            },
-            {
-                path: "/signin",
-                element: <SignIn />,
-            },
-            {
-                path: "/signup",
-                element: <SignUp />,
-            },
-            {
-                path: "/profile",
-                element: <ProfilePage />,
-            },
-        ],
-    },
-]);
+import ChatApp from "./components/Chat.tsx";
+import { Route } from "react-router-dom";
 
 createRoot(document.getElementById("root")!).render(
     <StrictMode>
-        <RouterProvider router={router} />
+        {/* <RouterProvider router={router} /> */}
+        <BrowserRouter>
+            <Routes>
+                <Route path="/" element={<App />}>
+                    <Route index element={<ChatApp />} />
+                    <Route path="signin" element={<SignIn />} />
+                    <Route path="signup" element={<SignUp />} />
+                    <Route path="profile" element={<ProfilePage />} />
+                    <Route path="*" element={<ErrorPage />} />
+                </Route>
+            </Routes>
+        </BrowserRouter>
     </StrictMode>
 );

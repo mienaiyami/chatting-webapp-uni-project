@@ -32,7 +32,6 @@ const onlineUsers = new Set<string>();
 
 io.on("connection", async (socket) => {
     const userId: string = socket.data.userId;
-    console.log("User connected", userId);
     onlineUsers.add(userId);
 
     const userContacts = await UserContacts.findOne({ user: userId });
@@ -45,7 +44,9 @@ io.on("connection", async (socket) => {
             socket.to(contactId).emit(SOCKET_EVENTS.USER_ONLINE, { userId });
         });
     }
-
+    socket.onAny((a) => {
+        console.log(`EVENT: ${a} FROM : ${userId}`);
+    });
     socket.on(SOCKET_EVENTS.GET_ONLINE_CONTACTS, async () => {
         const userContacts = await UserContacts.findOne({ user: userId });
         if (userContacts) {
@@ -190,34 +191,43 @@ io.on("connection", async (socket) => {
         }
     });
 
-    socket.on(SOCKET_EVENTS.CREATE_CHAT, async ({ userId2 }) => {
-        try {
-            if (!mongoose.Types.ObjectId.isValid(userId2)) {
-                throw new Error("Invalid User ID format");
+    socket.on(
+        SOCKET_EVENTS.CREATE_CHAT,
+        async (
+            { userId2 },
+            cb?: (response: { chat?: any; error?: string }) => void
+        ) => {
+            try {
+                if (!mongoose.Types.ObjectId.isValid(userId2)) {
+                    throw new Error("Invalid User ID format");
+                }
+
+                const existingChat = await Chat.findOne({
+                    members: { $all: [userId, userId2] },
+                });
+
+                if (existingChat) {
+                    socket.emit(SOCKET_EVENTS.CHAT_CREATED, {
+                        chat: existingChat,
+                    });
+                    return;
+                }
+
+                const newChat = await Chat.create({
+                    members: [userId, userId2],
+                });
+                await newChat.populate("members", "username avatarUrl");
+                if (cb) cb({ chat: newChat });
+                socket.emit(SOCKET_EVENTS.CHAT_CREATED, { chat: newChat });
+                socket
+                    .to(userId2)
+                    .emit(SOCKET_EVENTS.CHAT_CREATED, { chat: newChat });
+            } catch (error) {
+                if (cb) cb({ error: error.message });
+                socket.emit("error", { message: error.message });
             }
-
-            const existingChat = await Chat.findOne({
-                members: { $all: [userId, userId2] },
-            });
-
-            if (existingChat) {
-                socket.emit(SOCKET_EVENTS.CHAT_CREATED, { chat: existingChat });
-                return;
-            }
-
-            const newChat = await Chat.create({
-                members: [userId, userId2],
-            });
-            await newChat.populate("members", "username avatarUrl");
-
-            socket.emit(SOCKET_EVENTS.CHAT_CREATED, { chat: newChat });
-            socket
-                .to(userId2)
-                .emit(SOCKET_EVENTS.CHAT_CREATED, { chat: newChat });
-        } catch (error) {
-            socket.emit("error", { message: error.message });
         }
-    });
+    );
 
     socket.on(SOCKET_EVENTS.GET_MESSAGES, async ({ chatId }) => {
         try {

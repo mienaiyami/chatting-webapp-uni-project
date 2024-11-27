@@ -1,4 +1,4 @@
-import { useLayoutEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useState } from "react";
 import { useForm, SubmitHandler } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -41,7 +41,7 @@ export default function SignUp() {
     const navigate = useNavigate();
 
     const userToken = useTokenStore((s) => s.token);
-    useLayoutEffect(() => {
+    useEffect(() => {
         if (userToken) navigate("/profile");
     }, [userToken, navigate]);
     const handleProfilePicUpload = (
@@ -79,8 +79,8 @@ export default function SignUp() {
             if (json.token) {
                 toast.success("Signed up successfully. Signing in...");
                 localStorage.setItem("token", json.token);
-                // navigate("/");
-                window.location.href = "/";
+                navigate("/");
+                // window.location.href = "/";
             }
         } catch (error) {
             if (error instanceof Error) toast.error(error.message);
