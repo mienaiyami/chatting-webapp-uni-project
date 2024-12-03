@@ -6,13 +6,17 @@ import useUserDetailStore from "@/store/userDetails";
 import { toast } from "sonner";
 import { SocketProvider } from "@/socket/SocketProvider";
 import { useNavigate } from "react-router-dom";
+import useTokenStore from "@/store/token";
 
 export default function ChatApp() {
     const { setUserDetails, userDetails } = useUserDetailStore();
+    const clearToken = useTokenStore((state) => state.clearToken);
     const navigate = useNavigate();
     useEffect(() => {
         if (!document.cookie.includes("token")) {
             // window.location.href = "/signin";
+            clearToken();
+            localStorage.removeItem("token");
             toast.error("Unauthorized");
             navigate("/signin");
         } else {

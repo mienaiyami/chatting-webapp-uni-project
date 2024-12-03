@@ -15,13 +15,17 @@ import {
     TooltipProvider,
     TooltipTrigger,
 } from "@/components/ui/tooltip";
+import useChatStore from "@/store/chatStore";
+import { Search, Users } from "lucide-react";
+import CreateGroupDialog from "./CreateGroupDialog";
 
 export function Sidebar() {
     const [searchQuery, setSearchQuery] = useState("");
     const { chatOpened, setChatOpened } = useChatOpenedStore();
     const userDetails = useUserDetailStore((state) => state.userDetails)!;
 
-    const { combinedList, createChat, loading } = useChat();
+    const { createChat, loading } = useChat();
+    const { combinedList } = useChatStore();
 
     if (loading) {
         return (
@@ -62,14 +66,31 @@ export function Sidebar() {
                         </TooltipContent>
                     </Tooltip>
                     <AddContactDialog />
+                    <CreateGroupDialog />
+                    {/* <Tooltip>
+                        <TooltipTrigger asChild>
+                            <Button variant="ghost" size="icon">
+                                <Users className="h-5 w-5" />
+                                <span className="sr-only">Create Group</span>
+                            </Button>
+                        </TooltipTrigger>
+                        <TooltipContent className="text-xs px-2 py-1">
+                            Create Group
+                        </TooltipContent>
+                    </Tooltip> */}
                     {/* <Button variant="ghost" size="icon">
                         <MessageSquare className="h-5 w-5" />
                         <span className="sr-only">New Message</span>
                     </Button> */}
                 </div>
-                <div className="p-4">
+                <div className="p-4 relative">
+                    <Search
+                        size={"1.3em"}
+                        className="opacity-40 pointer-events-none absolute top top-1/2 -translate-y-1/2 left-6 "
+                    />
                     <Input
-                        placeholder="Search contacts..."
+                        placeholder="Search"
+                        className="pl-8"
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                     />

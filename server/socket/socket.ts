@@ -69,7 +69,7 @@ io.on("connection", async (socket) => {
         if (!mongoose.Types.ObjectId.isValid(chatId)) return;
         const chat = await Chat.findOne({
             _id: chatId,
-            members: userId,
+            "members.user": userId,
         }).populate({
             path: "messages",
             match: { deletedAt: null },
@@ -120,7 +120,7 @@ io.on("connection", async (socket) => {
                 if (!mongoose.Types.ObjectId.isValid(chatId)) return;
                 const chat = await Chat.findOne({
                     _id: chatId,
-                    members: userId,
+                    "members.user": userId,
                 });
                 if (!chat) {
                     socket.emit("error", {
@@ -197,9 +197,9 @@ io.on("connection", async (socket) => {
                     .to(
                         chat.members
                             .filter(
-                                (memberId) => memberId.toString() !== userId
+                                (member) => member.user.toString() !== userId
                             )
-                            .map((memberId) => memberId.toString())
+                            .map((member) => member.user.toString())
                     )
                     .emit(SOCKET_EVENTS.NEW_MESSAGE, {
                         ...message.toJSON(),
@@ -218,7 +218,10 @@ io.on("connection", async (socket) => {
     socket.on(SOCKET_EVENTS.USER_TYPING, async (chatId: string) => {
         if (!mongoose.Types.ObjectId.isValid(chatId)) return;
 
-        const chat = await Chat.findOne({ _id: chatId, members: userId });
+        const chat = await Chat.findOne({
+            _id: chatId,
+            "members.user": userId,
+        });
         if (!chat) return;
 
         socket.to(chatId).emit(SOCKET_EVENTS.USER_TYPING, { userId });
@@ -226,8 +229,10 @@ io.on("connection", async (socket) => {
 
     socket.on(SOCKET_EVENTS.USER_STOP_TYPING, async (chatId: string) => {
         if (!mongoose.Types.ObjectId.isValid(chatId)) return;
-
-        const chat = await Chat.findOne({ _id: chatId, members: userId });
+        const chat = await Chat.findOne({
+            _id: chatId,
+            "members.user": userId,
+        });
         if (!chat) return;
 
         socket.to(chatId).emit(SOCKET_EVENTS.USER_STOP_TYPING, { userId });
@@ -258,12 +263,12 @@ io.on("connection", async (socket) => {
     socket.on(SOCKET_EVENTS.GET_CHATS_AND_GROUPS, async () => {
         try {
             const [chats, groups] = await Promise.all([
-                Chat.find({ members: userId })
+                Chat.find({ "members.user": userId })
                     .populate({
                         path: "messages",
                         options: { sort: { createdAt: -1 }, limit: 1 },
                     })
-                    .populate("members", "username avatarUrl")
+                    .populate("members.user", "username avatarUrl")
                     .exec(),
                 Group.find({ "members.user": userId })
                     .populate({
@@ -275,6 +280,7 @@ io.on("connection", async (socket) => {
             ]);
             socket.emit(SOCKET_EVENTS.CHATS_AND_GROUPS, { chats, groups });
         } catch (error) {
+            console.error(error);
             socket.emit("error", { message: error.message });
         }
     });
@@ -291,7 +297,7 @@ io.on("connection", async (socket) => {
                 }
 
                 const existingChat = await Chat.findOne({
-                    members: { $all: [userId, userId2] },
+                    "members.user": { $all: [userId, userId2] },
                 });
 
                 if (existingChat) {
@@ -302,9 +308,12 @@ io.on("connection", async (socket) => {
                 }
 
                 const newChat = await Chat.create({
-                    members: [userId, userId2],
+                    members: [{ user: userId }, { user: userId2 }],
                 });
-                await newChat.populate("members", "username avatarUrl");
+                await newChat.populate({
+                    path: "members.user",
+                    select: "username avatarUrl",
+                });
                 if (cb) cb({ chat: newChat });
                 socket.emit(SOCKET_EVENTS.CHAT_CREATED, { chat: newChat });
                 socket
@@ -321,7 +330,7 @@ io.on("connection", async (socket) => {
         try {
             const chat = await Chat.findOne({
                 _id: chatId,
-                members: userId,
+                "members.user": userId,
             }).populate({
                 path: "messages",
                 match: { deletedAt: null },
@@ -361,8 +370,9 @@ io.on("connection", async (socket) => {
                 contacts: formattedContacts,
             });
         } catch (error) {
+            console.error(error);
             socket.emit("error", {
-                message: error.message || "Failed to fetch contacts",
+                message: "Failed to fetch contacts",
             });
         }
     });
@@ -452,14 +462,14 @@ io.on("connection", async (socket) => {
 
             const chat = await Chat.findOne({
                 _id: chatId,
-                members: userId,
+                "members.user": userId,
             });
             if (!chat) return;
 
             await ChatMessage.updateMany({ chatId }, { deletedAt: new Date() });
 
-            chat.members.forEach((memberId) => {
-                io.to(memberId.toString()).emit(SOCKET_EVENTS.CHAT_CLEARED, {
+            chat.members.forEach(({ user }) => {
+                io.to(user.toString()).emit(SOCKET_EVENTS.CHAT_CLEARED, {
                     chatId,
                 });
             });
@@ -487,7 +497,7 @@ io.on("connection", async (socket) => {
 
                 const chat = await Chat.findOne({
                     _id: chatId,
-                    members: userId,
+                    "members.user": userId,
                 });
 
                 if (!chat) return;
@@ -504,13 +514,12 @@ io.on("connection", async (socket) => {
                     deletedAt: new Date(),
                 });
 
-                io.to(chat.members.map((memberId) => memberId.toString())).emit(
-                    SOCKET_EVENTS.MESSAGE_DELETED,
-                    {
-                        chatId,
-                        messageId,
-                    }
-                );
+                io.to(
+                    chat.members.map((member) => member.user.toString())
+                ).emit(SOCKET_EVENTS.MESSAGE_DELETED, {
+                    chatId,
+                    messageId,
+                });
             } catch (error) {
                 socket.emit("error", { message: error.message });
             }
@@ -537,7 +546,7 @@ io.on("connection", async (socket) => {
 
                 const chat = await Chat.findOne({
                     _id: chatId,
-                    members: userId,
+                    "members.user": userId,
                 });
 
                 if (!chat) return;
@@ -560,12 +569,11 @@ io.on("connection", async (socket) => {
                 ).populate("repliedTo");
 
                 //todo check what happens when repliedTo message is edited, does it show up in chat
-                io.to(chat.members.map((memberId) => memberId.toString())).emit(
-                    SOCKET_EVENTS.MESSAGE_EDITED,
-                    {
-                        ...updatedMessage.toJSON(),
-                    }
-                );
+                io.to(
+                    chat.members.map((member) => member.user.toString())
+                ).emit(SOCKET_EVENTS.MESSAGE_EDITED, {
+                    ...updatedMessage.toJSON(),
+                });
             } catch (error) {
                 socket.emit("error", { message: error.message });
             }

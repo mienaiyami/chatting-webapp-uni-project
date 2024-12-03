@@ -1,25 +1,19 @@
 import mongoose from "mongoose";
+import { memberSchema } from "./Group";
 
 const chatSchema = new mongoose.Schema(
     {
         members: {
-            type: [
-                {
-                    type: mongoose.Schema.Types.ObjectId,
-                    ref: "User",
-                    required: true,
-                },
-            ],
+            type: [memberSchema],
             validate: [
                 {
-                    validator: (members: mongoose.Types.ObjectId[]) =>
-                        members.length === 2,
+                    validator: (members: any[]) => members.length === 2,
                     message: "Chat must have exactly two members.",
                 },
                 {
-                    validator: (members: mongoose.Types.ObjectId[]) => {
+                    validator: (members: any[]) => {
                         const uniqueMembers = new Set(
-                            members.map((member) => member.toString())
+                            members.map((member) => member.user.toString())
                         );
                         return uniqueMembers.size === members.length;
                     },

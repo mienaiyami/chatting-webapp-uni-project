@@ -1,3 +1,5 @@
+import { scan } from "react-scan";
+
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter, Routes } from "react-router-dom";
@@ -9,6 +11,13 @@ import ErrorPage from "./error-page.tsx";
 import ProfilePage from "./components/Profile.tsx";
 import ChatApp from "./components/Chat.tsx";
 import { Route } from "react-router-dom";
+
+// if (typeof window !== "undefined") {
+//     scan({
+//         enabled: true,
+//         log: true,
+//     });
+// }
 
 createRoot(document.getElementById("root")!).render(
     <StrictMode>

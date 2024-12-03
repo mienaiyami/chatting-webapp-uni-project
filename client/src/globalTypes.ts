@@ -37,7 +37,7 @@ declare global {
     type UserDetails = {
         email: string;
         username: string;
-        avatarUrl: string;
+        avatarUrl?: string;
         nickname?: string;
         _id: string;
     };
@@ -49,9 +49,22 @@ declare global {
         nickname: string;
         note: string;
     };
+
+    type ChatMember = {
+        user: UserDetails;
+        joinedAt?: Date;
+        role?: "admin" | "member";
+    };
+    type SimpleChatMember = {
+        username: string;
+        avatarUrl?: string;
+        role?: "admin" | "member";
+        joinedAt?: Date;
+    };
+    //todo : populate dp,name on server from other user?
     type Chat = {
         _id: string;
-        members: UserDetails[];
+        members: ChatMember[];
         // will only be a single message
         messages: Message[];
     };
@@ -60,11 +73,7 @@ declare global {
         name: string;
         displayPicture: string;
         description: string;
-        members: {
-            user: UserDetails[];
-            joinedAt: Date;
-        }[];
-        admins: string[];
+        members: ChatMember[];
         // will only be a single message
         messages: Message[];
         createdAt: Date;
@@ -76,7 +85,7 @@ declare global {
         displayPicture: string;
         lastMessage: string;
         lastMessageAt: Date | null;
-        members?: UserDetails[];
+        members?: ChatMember[];
         muted?: boolean;
     };
     type ContactListType = Omit<ChatGroupListType, "_id" | "type"> & {
@@ -93,7 +102,7 @@ declare global {
         lastMessageAt: Date | null;
         muted?: boolean;
         /**this get filled later, not on `setChatOpened` */
-        members: UserDetails[];
+        members: ChatMember[];
         admins?: UserDetails[];
     };
 

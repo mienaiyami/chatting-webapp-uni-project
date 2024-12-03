@@ -1,19 +1,22 @@
-import { useEffect, useCallback } from "react";
+import { useEffect, useCallback, useMemo, useLayoutEffect } from "react";
 import { useSocket } from "@/socket/SocketProvider";
 import { SOCKET_EVENTS } from "@/socket/events";
 import useUserDetailStore from "@/store/userDetails";
 import useChatStore from "@/store/chatStore";
 import useUserContacts from "@/hooks/useUserContacts";
 import { toast } from "sonner";
+import useChatOpenedStore from "@/store/chatOpened";
+import useMemberStore from "@/store/membersStore";
 
 const useChat = () => {
     const { socket } = useSocket();
     const { userDetails } = useUserDetailStore();
     const { contacts } = useUserContacts();
+    const chatOpened = useChatOpenedStore((e) => e.chatOpened);
+    const { updateMembers } = useMemberStore();
     const {
         chats,
         groups,
-        combinedList,
         loading,
         setChats,
         setGroups,
@@ -137,10 +140,10 @@ const useChat = () => {
         const list = [
             ...chats.map((chat) => {
                 const otherMember = chat.members.find(
-                    (member: UserDetails) => member._id !== userDetails._id
+                    (member) => member.user._id !== userDetails._id
                 );
                 const contact = contacts.find(
-                    (c) => c.userId === otherMember?._id
+                    (c) => c.userId === otherMember?.user._id
                 );
 
                 return {
@@ -149,8 +152,8 @@ const useChat = () => {
                     displayName:
                         contact?.nickname ||
                         contact?.username ||
-                        (otherMember?.username || "") + " (Unknown)",
-                    displayPicture: otherMember?.avatarUrl || "",
+                        (otherMember?.user.username || "") + " (Unknown)",
+                    displayPicture: otherMember?.user.avatarUrl || "",
                     lastMessage: chat.messages[0]
                         ? `${
                               chat.messages[0].senderId === userDetails._id
@@ -175,13 +178,15 @@ const useChat = () => {
                       }${group.messages[0].text}`
                     : "Start Chatting",
                 lastMessageAt: group.messages[0]?.createdAt || null,
-                // members: group.members,
+                members: group.members,
             })),
             ...contacts
                 .filter(
                     (contact) =>
                         !chats.some((chat) =>
-                            chat.members.some((m) => m._id === contact.userId)
+                            chat.members.some(
+                                (m) => m.user._id === contact.userId
+                            )
                         )
                 )
                 .map((contact) => ({
@@ -210,10 +215,15 @@ const useChat = () => {
         fetchChatsAndGroups();
     }, [userDetails]);
 
+    useLayoutEffect(() => {
+        if (chatOpened && chatOpened.members.length > 0) {
+            updateMembers(chatOpened.members, contacts);
+        }
+    }, [chatOpened, contacts]);
+
     return {
         loading,
         createChat,
-        combinedList,
         refetch: fetchChatsAndGroups,
     };
 };

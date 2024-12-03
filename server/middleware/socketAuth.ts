@@ -2,8 +2,12 @@ import { Socket } from "socket.io";
 import jwt from "jsonwebtoken";
 import mongoose from "mongoose";
 import { JWT_SECRET } from "../config/config";
+import User from "../models/User";
 
-export const socketAuth = (socket: Socket, next: (err?: Error) => void) => {
+export const socketAuth = async (
+    socket: Socket,
+    next: (err?: Error) => void
+) => {
     const token = socket.handshake.auth.token;
 
     if (!token) {
@@ -16,6 +20,10 @@ export const socketAuth = (socket: Socket, next: (err?: Error) => void) => {
         };
         if (!mongoose.Types.ObjectId.isValid(userId))
             throw new Error("Invalid user id");
+        console.time("User.findById");
+        const user = await User.findById(userId);
+        console.timeEnd("User.findById");
+        if (!user) throw new Error("User not found");
         socket.data.userId = userId;
         next();
     } catch (err) {

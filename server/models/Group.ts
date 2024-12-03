@@ -1,5 +1,27 @@
 import mongoose from "mongoose";
 
+export const memberSchema = new mongoose.Schema(
+    {
+        user: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "User",
+            required: true,
+            index: true,
+        },
+        joinedAt: {
+            type: Date,
+            default: Date.now,
+        },
+        role: {
+            type: String,
+            enum: ["admin", "member"],
+            default: "member",
+            index: true,
+        },
+    },
+    { _id: false }
+);
+
 const groupSchema = new mongoose.Schema(
     {
         name: {
@@ -14,25 +36,25 @@ const groupSchema = new mongoose.Schema(
             type: String,
             default: "",
         },
-        members: [
-            {
-                user: {
-                    type: mongoose.Schema.Types.ObjectId,
-                    ref: "User",
-                    required: true,
+        members: {
+            type: [memberSchema],
+            validate: [
+                {
+                    validator: (members: any[]) => members.length > 0,
+                    message: "Group must have at least 1 member.",
                 },
-                joinedAt: {
-                    type: Date,
-                    default: Date.now,
+                {
+                    validator: (members: any[]) => {
+                        const uniqueMembers = new Set(
+                            members.map((member) => member.user.toString())
+                        );
+                        return uniqueMembers.size === members.length;
+                    },
+                    message: "Members must be unique.",
                 },
-            },
-        ],
-        admins: [
-            {
-                type: mongoose.Schema.Types.ObjectId,
-                ref: "User",
-            },
-        ],
+            ],
+            required: true,
+        },
         messages: [
             {
                 type: mongoose.Schema.Types.ObjectId,
@@ -42,6 +64,20 @@ const groupSchema = new mongoose.Schema(
     },
     {
         timestamps: true,
+        methods: {
+            isMember(userId: string) {
+                return this.members.some(
+                    (member: any) => member.user.toString() === userId
+                );
+            },
+            isAdmin(userId: string) {
+                return this.members.some(
+                    (member: any) =>
+                        member.user.toString() === userId &&
+                        member.role === "admin"
+                );
+            },
+        },
     }
 );
 

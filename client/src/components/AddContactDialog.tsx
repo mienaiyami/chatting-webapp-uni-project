@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Trash, UserPlus } from "lucide-react";
+import { Trash, UserPlus, UserSearch } from "lucide-react";
 import useUserDetailStore from "@/store/userDetails";
 import { toast } from "sonner";
 import searchUsers from "@/requests/searchUsers";
@@ -48,7 +48,7 @@ export default function AddContactDialog() {
                 <TooltipTrigger asChild>
                     <DialogTrigger asChild>
                         <Button variant="ghost" size={"icon"}>
-                            <UserPlus className="h-5 w-5" />
+                            <UserSearch className="h-5 w-5" />
                             <span className="sr-only">Add Contact</span>
                         </Button>
                     </DialogTrigger>
@@ -81,7 +81,8 @@ export default function AddContactDialog() {
                                 >
                                     <Button
                                         variant="ghost"
-                                        className="flex w-full space-x-2 items-center h-full p-2 rounded-md hover:bg-accent"
+                                        className="flex w-full space-x-2 items-center h-full p-2 rounded-md"
+                                        disabled={user._id === currentUser?._id}
                                         onClick={() => {
                                             updateContact(user._id, "add");
                                         }}

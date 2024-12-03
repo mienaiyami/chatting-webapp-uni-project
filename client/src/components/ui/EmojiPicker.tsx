@@ -9,8 +9,6 @@ import Picker from "@emoji-mart/react";
 import { SmileIcon } from "lucide-react";
 import { Button } from "./button";
 
-console.log(data);
-
 export const EmojiPicker = ({
     onEmojiSelect,
 }: {

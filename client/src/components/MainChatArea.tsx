@@ -3,16 +3,11 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
-    Phone,
-    Video,
     MoreHorizontal,
     Paperclip,
-    Smile,
-    Send,
     Reply,
     Edit2,
     X,
-    Delete,
     Trash2,
 } from "lucide-react";
 import useUserDetailStore from "@/store/userDetails";
@@ -50,6 +45,10 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import useUserContacts from "@/hooks/useUserContacts";
+import useChat from "@/hooks/useChat";
+import ReplyPreview from "./ReplyPreview";
+import MessageItem from "./MessageItem";
+import useMemberStore from "@/store/membersStore";
 
 const renderers: ReactMarkdownComponents = {
     p: ({ children }) => <p className="text-accent-foreground">{children}</p>,
@@ -116,6 +115,7 @@ export function MainChatArea() {
     const userDetails = useUserDetailStore((state) => state.userDetails)!;
     const { socket } = useSocket();
     const [newMessage, setNewMessage] = useState("");
+    const { membersMap } = useMemberStore();
 
     const [editingMessage, setEditingMessage] = useState<Message | null>(null);
     // const [editText, setEditText] = useState("");
@@ -242,7 +242,7 @@ export function MainChatArea() {
                     </Avatar>
                     <div>
                         <h2 className="font-bold">{chatOpened.displayName}</h2>
-                        <p className="text-sm text-muted-foreground">Online</p>
+                        <p className="text-xs text-muted-foreground">Online</p>
                     </div>
                 </div>
                 <div>
@@ -275,32 +275,34 @@ export function MainChatArea() {
                                     </span>
                                 </Button>
                             </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                                <DialogTrigger asChild>
-                                    <DropdownMenuItem>
-                                        Clear Chat
-                                    </DropdownMenuItem>
-                                </DialogTrigger>
+                            {chatOpened.type === "chat" && (
+                                <DropdownMenuContent align="end">
+                                    <DialogTrigger asChild>
+                                        <DropdownMenuItem>
+                                            Clear Chat
+                                        </DropdownMenuItem>
+                                    </DialogTrigger>
 
-                                {chatOpened.displayName.includes(
-                                    "(Unknown)"
-                                ) && (
-                                    <DropdownMenuItem
-                                        onClick={() => {
-                                            updateContact(
-                                                chatOpened.members.find(
-                                                    (m) =>
-                                                        m._id !==
-                                                        userDetails._id
-                                                )!._id,
-                                                "add"
-                                            );
-                                        }}
-                                    >
-                                        Add Contact
-                                    </DropdownMenuItem>
-                                )}
-                            </DropdownMenuContent>
+                                    {chatOpened.displayName.includes(
+                                        "(Unknown)"
+                                    ) && (
+                                        <DropdownMenuItem
+                                            onClick={() => {
+                                                updateContact(
+                                                    chatOpened.members.find(
+                                                        (m) =>
+                                                            m.user._id !==
+                                                            userDetails._id
+                                                    )!.user._id,
+                                                    "add"
+                                                );
+                                            }}
+                                        >
+                                            Add Contact
+                                        </DropdownMenuItem>
+                                    )}
+                                </DropdownMenuContent>
+                            )}
                         </DropdownMenu>
                         <DialogContent>
                             <DialogHeader>
@@ -343,447 +345,46 @@ export function MainChatArea() {
                     ref={scrollAreaRef}
                 >
                     {messages.map((message, i, arr) => (
-                        <div
+                        <MessageItem
                             key={message._id + i}
-                            data-message-id={message._id}
-                            className={`group/message hover:bg-accent/10 rounded-md relative flex flex-col items-start ${
-                                selectedForReply?._id === message._id
-                                    ? "bg-accent/20"
-                                    : ""
-                            } ${message.optimistic ? "opacity-50" : ""}`}
-                        >
-                            {editingMessage?._id !== message._id && (
-                                <div className="group-hover/message:flex bg-accent/50 rounded-sm absolute right-0 top-0 hidden flex-row gap-0 items-center">
-                                    <Tooltip>
-                                        <TooltipTrigger asChild>
-                                            <Button
-                                                variant="ghost"
-                                                className="w-8 h-8 p-2 rounded-none rounded-l-sm"
-                                                onClick={() => {
-                                                    setSelectedForReply(
-                                                        message
-                                                    );
-                                                }}
-                                            >
-                                                <Reply className="aspect-square h-4" />
-                                                <span className="sr-only">
-                                                    Reply
-                                                </span>
-                                            </Button>
-                                        </TooltipTrigger>
-                                        <TooltipContent className="text-xs px-2 py-1">
-                                            Reply
-                                        </TooltipContent>
-                                    </Tooltip>
-                                    {message.senderId === userDetails._id && (
-                                        <Tooltip>
-                                            <TooltipTrigger asChild>
-                                                <Button
-                                                    variant="ghost"
-                                                    className="w-8 h-8 p-2 rounded-none"
-                                                    onClick={() => {
-                                                        setEditingMessage(
-                                                            message
-                                                        );
-                                                        // setEditText(
-                                                        //     message.text
-                                                        // );
-                                                    }}
-                                                >
-                                                    <Edit2 className="aspect-square h-4" />
-                                                    <span className="sr-only">
-                                                        Edit
-                                                    </span>
-                                                </Button>
-                                            </TooltipTrigger>
-                                            <TooltipContent className="text-xs px-2 py-1">
-                                                Edit
-                                            </TooltipContent>
-                                        </Tooltip>
-                                    )}
-                                    {(message.senderId === userDetails._id ||
-                                        (chatOpened.type === "group" &&
-                                            chatOpened.admins?.some(
-                                                (admin) =>
-                                                    admin._id ===
-                                                    userDetails._id
-                                            ))) && (
-                                        <Tooltip>
-                                            <TooltipTrigger asChild>
-                                                <Button
-                                                    variant="ghost"
-                                                    className="w-8 h-8 p-2 rounded-none"
-                                                    onClick={() => {
-                                                        deleteMessage(
-                                                            chatOpened._id,
-                                                            message._id
-                                                        );
-                                                    }}
-                                                >
-                                                    <Trash2 className="aspect-square h-4" />
-                                                    <span className="sr-only">
-                                                        Delete
-                                                    </span>
-                                                </Button>
-                                            </TooltipTrigger>
-                                            <TooltipContent className="text-xs px-2 py-1">
-                                                Delete
-                                            </TooltipContent>
-                                        </Tooltip>
-                                    )}
-                                    <Tooltip>
-                                        <TooltipTrigger asChild>
-                                            <Button
-                                                variant="ghost"
-                                                className="w-8 h-8 p-2 rounded-none rounded-r-sm"
-                                            >
-                                                <MoreHorizontal className="aspect-square h-4" />
-                                                <span className="sr-only">
-                                                    More Options
-                                                </span>
-                                            </Button>
-                                        </TooltipTrigger>
-                                        <TooltipContent className="text-xs px-2 py-1">
-                                            More Options
-                                        </TooltipContent>
-                                    </Tooltip>
-                                </div>
-                            )}
-                            {(i === 0 ||
-                                message.repliedTo ||
+                            i={i}
+                            isFirstMessage={
+                                i === 0 ||
+                                !!message.repliedTo ||
                                 (i > 0 &&
-                                    arr[i - 1].senderId !==
-                                        message.senderId)) && (
-                                <div className="w-full flex flex-col gap-0.5 items-start justify-between mb-1 mt-2 cursor-default">
-                                    {message.repliedTo &&
-                                        message.repliedTo._id && (
-                                            <div
-                                                className="flex items-center gap-1 hover:underline"
-                                                role="button"
-                                                tabIndex={0}
-                                                onClick={() => {
-                                                    const element =
-                                                        document.querySelector(
-                                                            `[data-message-id="${message.repliedTo?._id}"]`
-                                                        );
-                                                    if (element) {
-                                                        element.scrollIntoView({
-                                                            behavior: "smooth",
-                                                        });
-                                                        element.classList.add(
-                                                            "animate-flash"
-                                                        );
-                                                        element.addEventListener(
-                                                            "animationend",
-                                                            () => {
-                                                                element.classList.remove(
-                                                                    "animate-flash"
-                                                                );
-                                                            },
-                                                            { once: true }
-                                                        );
-                                                    }
-                                                }}
-                                            >
-                                                <span className="text-xs">
-                                                    Replying to
-                                                </span>
-                                                <Avatar className="h-4 w-4">
-                                                    <AvatarImage
-                                                        src={
-                                                            message.repliedTo
-                                                                .senderId ===
-                                                            userDetails._id
-                                                                ? userDetails.avatarUrl
-                                                                : chatOpened.displayPicture
-                                                        }
-                                                        alt={
-                                                            message.repliedTo
-                                                                .senderId ===
-                                                            userDetails._id
-                                                                ? userDetails.avatarUrl
-                                                                : chatOpened.displayPicture
-                                                        }
-                                                    />
-                                                    <AvatarFallback>
-                                                        {(message.repliedTo
-                                                            .senderId ===
-                                                        userDetails._id
-                                                            ? userDetails.avatarUrl
-                                                            : chatOpened.displayPicture
-                                                        )
-                                                            .slice(0, 2)
-                                                            .toUpperCase()}
-                                                    </AvatarFallback>
-                                                </Avatar>
-                                                <div className="flex flex-row gap-2 items-center">
-                                                    <h3 className="text-sm">
-                                                        {message.repliedTo
-                                                            .senderId ===
-                                                        userDetails._id
-                                                            ? userDetails.username
-                                                            : chatOpened.displayName}
-                                                    </h3>
-                                                    <div className={`text-xs`}>
-                                                        {message.repliedTo.text
-                                                            .replace("\n", " ")
-                                                            .slice(0, 20) +
-                                                            (message.repliedTo
-                                                                .text.length >
-                                                            20
-                                                                ? "..."
-                                                                : "")}
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        )}
-                                    <div className="flex items-center">
-                                        <Avatar className="h-8 w-8 mr-2">
-                                            <AvatarImage
-                                                src={
-                                                    message.senderId ===
-                                                    userDetails._id
-                                                        ? userDetails.avatarUrl
-                                                        : chatOpened.displayPicture
-                                                }
-                                                alt={
-                                                    message.senderId ===
-                                                    userDetails._id
-                                                        ? userDetails.avatarUrl
-                                                        : chatOpened.displayPicture
-                                                }
-                                            />
-                                            <AvatarFallback>
-                                                {(message.senderId ===
-                                                userDetails._id
-                                                    ? userDetails.avatarUrl
-                                                    : chatOpened.displayPicture
-                                                )
-                                                    .slice(0, 2)
-                                                    .toUpperCase()}
-                                            </AvatarFallback>
-                                        </Avatar>
-                                        <div className="flex flex-row gap-2 items-center">
-                                            <h3 className="text-sm">
-                                                {message.senderId ===
-                                                userDetails._id
-                                                    ? userDetails.username
-                                                    : chatOpened.displayName}
-                                            </h3>
-                                            <Tooltip delayDuration={1000}>
-                                                <TooltipTrigger asChild>
-                                                    <span className="text-xs text-muted-foreground">
-                                                        {formatDate(
-                                                            message.createdAt
-                                                        )}
-                                                    </span>
-                                                </TooltipTrigger>
-                                                <TooltipContent className="text-xs px-2 py-1">
-                                                    {formatDate2(
-                                                        message.createdAt
-                                                    )}
-                                                </TooltipContent>
-                                            </Tooltip>
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
-                            <div className="flex flex-row items-start gap-1 w-full">
-                                <Tooltip delayDuration={1000}>
-                                    <TooltipTrigger asChild>
-                                        <div className="w-8 pt-2 pl-1 group-hover/message:opacity-100 opacity-0 select-none text-xs text-accent-foreground/30">
-                                            {new Date(
-                                                message.createdAt
-                                            ).toLocaleTimeString("en-GB", {
-                                                hour: "2-digit",
-                                                minute: "2-digit",
-                                                hour12: false,
-                                            })}
-                                        </div>
-                                    </TooltipTrigger>
-                                    <TooltipContent className="text-xs px-2 py-1">
-                                        {formatDate2(message.createdAt)}
-                                    </TooltipContent>
-                                </Tooltip>
-
-                                <div
-                                    className={`p-2 bg-accent/50 text-accent-foreground rounded-lg max-w-[80%] break-words whitespace-pre-line ${
-                                        i === 0 ||
-                                        message.repliedTo ||
-                                        (i > 0 &&
-                                            arr[i - 1].senderId !==
-                                                message.senderId)
-                                            ? "mb-1"
-                                            : "my-1"
-                                    }`}
-                                >
-                                    {editingMessage?._id === message._id ? (
-                                        <div className="flex flex-col gap-1 w-full">
-                                            <div
-                                                role="textbox"
-                                                aria-label="Edit message"
-                                                aria-multiline="true"
-                                                contentEditable
-                                                ref={(element) => {
-                                                    if (element) {
-                                                        //todo fix caret position
-                                                        element.textContent =
-                                                            editingMessage.text;
-                                                        element.focus();
-                                                        const range =
-                                                            document.createRange();
-                                                        const selection =
-                                                            window.getSelection();
-                                                        range.selectNodeContents(
-                                                            element
-                                                        );
-                                                        range.collapse(false);
-                                                        selection?.removeAllRanges();
-                                                        selection?.addRange(
-                                                            range
-                                                        );
-                                                        // element.textContent =
-                                                        //     editText;
-                                                        // element.focus();
-                                                        // const range =
-                                                        //     document.createRange();
-                                                        // const selection =
-                                                        //     window.getSelection();
-                                                        // range.selectNodeContents(
-                                                        //     element
-                                                        // );
-                                                        // range.collapse(false);
-                                                        // selection?.removeAllRanges();
-                                                        // selection?.addRange(
-                                                        //     range
-                                                        // );
-                                                    }
-                                                }}
-                                                // onInput={(e) =>
-                                                //     setEditText(
-                                                //         e.currentTarget
-                                                //             .textContent || ""
-                                                //     )
-                                                // }
-                                                onKeyDown={(e) => {
-                                                    if (
-                                                        e.key === "Enter" &&
-                                                        !e.shiftKey
-                                                    ) {
-                                                        e.preventDefault();
-                                                        const text =
-                                                            e.currentTarget
-                                                                .textContent;
-
-                                                        if (text?.trim()) {
-                                                            editMessage(
-                                                                chatOpened._id,
-                                                                message._id,
-                                                                text.trim()
-                                                            );
-                                                            setEditingMessage(
-                                                                null
-                                                            );
-                                                            // setEditText("");
-                                                        }
-                                                    }
-                                                    if (e.key === "Escape") {
-                                                        setEditingMessage(null);
-                                                        // setEditText("");
-                                                    }
-                                                }}
-                                                className="w-full min-h-[1.5em] p-1 focus:outline-none focus:ring-1 focus:ring-ring focus:ring-offset-1 rounded-sm"
-                                            />
-                                            <div className="flex justify-end gap-2 text-xs text-muted-foreground">
-                                                <span>
-                                                    Press Enter to save, Esc to
-                                                    cancel
-                                                </span>
-                                                <span>
-                                                    Shift + Enter for new line
-                                                </span>
-                                            </div>
-                                        </div>
-                                    ) : (
-                                        <ReactMarkdown components={renderers}>
-                                            {message.text}
-                                        </ReactMarkdown>
-                                    )}
-                                    {message.attachment && (
-                                        <div className="mt-2">
-                                            <a
-                                                href={message.attachment.url}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                            >
-                                                {message.attachment.fType ===
-                                                "image" ? (
-                                                    <img
-                                                        src={
-                                                            message.attachment
-                                                                .url
-                                                        }
-                                                        alt={
-                                                            message.attachment
-                                                                .name
-                                                        }
-                                                        className="max-w-sm rounded-md"
-                                                    />
-                                                ) : message.attachment.fType ===
-                                                  "video" ? (
-                                                    <video
-                                                        src={
-                                                            message.attachment
-                                                                .url
-                                                        }
-                                                        controls
-                                                        className="max-w-sm rounded-md"
-                                                    />
-                                                ) : message.attachment.fType ===
-                                                  "audio" ? (
-                                                    <audio
-                                                        src={
-                                                            message.attachment
-                                                                .url
-                                                        }
-                                                        controls
-                                                        className="w-full"
-                                                    />
-                                                ) : (
-                                                    <a
-                                                        href={
-                                                            message.attachment
-                                                                .url
-                                                        }
-                                                        target="_blank"
-                                                        rel="noopener noreferrer"
-                                                        className="flex items-center gap-2 text-blue-500 hover:underline"
-                                                    >
-                                                        <Paperclip className="h-4 w-4" />
-                                                        <span>
-                                                            {
-                                                                message
-                                                                    .attachment
-                                                                    .name
-                                                            }
-                                                        </span>
-                                                        <span className="text-xs text-muted-foreground">
-                                                            (
-                                                            {formatFileSize(
-                                                                message
-                                                                    .attachment
-                                                                    .size
-                                                            )}
-                                                            )
-                                                        </span>
-                                                    </a>
-                                                )}
-                                            </a>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
+                                    arr[i - 1].senderId !== message.senderId)
+                            }
+                            message={message}
+                            editingMessage={
+                                editingMessage?._id === message._id
+                                    ? editingMessage.text
+                                    : ""
+                            }
+                            chatOpened={chatOpened}
+                            deleteMessage={deleteMessage}
+                            editMessage={editMessage}
+                            sender={
+                                membersMap.get(message.senderId) || {
+                                    username: "Unknown",
+                                    avatarUrl: "",
+                                    role: "member",
+                                }
+                            }
+                            userDetails={userDetails}
+                            setEditingMessage={() => {
+                                console.log("Setting editing message");
+                                setEditingMessage(message);
+                            }}
+                            clearEditingMessageStatus={() =>
+                                setEditingMessage(null)
+                            }
+                            selectedForReply={
+                                selectedForReply?._id === message._id
+                            }
+                            setSelectedForReply={() =>
+                                setSelectedForReply(message)
+                            }
+                        />
                     ))}
                 </ScrollArea>
             </TooltipProvider>
