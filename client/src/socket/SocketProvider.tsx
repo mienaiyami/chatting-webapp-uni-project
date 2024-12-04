@@ -14,12 +14,14 @@ interface SocketContextType {
     socket: Socket | null;
     isConnected: boolean;
     onlineContacts: string[];
+    typingUsers: string[];
 }
 
 const SocketContext = createContext<SocketContextType>({
     socket: null,
     isConnected: false,
     onlineContacts: [],
+    typingUsers: [],
 });
 
 export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({
@@ -28,8 +30,9 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({
     const [socket, setSocket] = useState<Socket | null>(null);
     const [isConnected, setIsConnected] = useState(false);
     const [onlineContacts, setOnlineContacts] = useState<string[]>([]);
+    const [typingUsers, setTypingUsers] = useState<string[]>([]);
     const token = useTokenStore((e) => e.token);
-    const { chatOpened } = useChatOpenedStore();
+    const { setChatOpened } = useChatOpenedStore();
 
     useLayoutEffect(() => {
         if (!token) return;
@@ -43,6 +46,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({
         socketInstance.on(SOCKET_EVENTS.CONNECT, () => {
             console.log("Connected to socket server");
             setIsConnected(true);
+            setChatOpened(null);
             socketInstance.emit(SOCKET_EVENTS.GET_ONLINE_CONTACTS);
         });
 
@@ -61,16 +65,16 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({
             setOnlineContacts((prev) => prev.filter((id) => id !== userId));
         });
 
-        socketInstance.on(SOCKET_EVENTS.NEW_MESSAGE, (message: Message) => {
-            // todo handle for sidebar display
-
-            if (chatOpened && message.chatId === chatOpened._id) {
-                // push message to chat
-            }
-        });
-
         socketInstance.on(SOCKET_EVENTS.DISCONNECT, () => {
             setIsConnected(false);
+        });
+
+        socketInstance.on(SOCKET_EVENTS.USER_TYPING, ({ userId }) => {
+            setTypingUsers((prev) => [...new Set([...prev, userId])]);
+        });
+
+        socketInstance.on(SOCKET_EVENTS.USER_STOP_TYPING, ({ userId }) => {
+            setTypingUsers((prev) => prev.filter((id) => id !== userId));
         });
 
         setSocket(socketInstance);
@@ -81,7 +85,9 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({
     }, [token]);
 
     return (
-        <SocketContext.Provider value={{ socket, isConnected, onlineContacts }}>
+        <SocketContext.Provider
+            value={{ socket, isConnected, onlineContacts, typingUsers }}
+        >
             {children}
         </SocketContext.Provider>
     );

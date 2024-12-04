@@ -133,7 +133,6 @@ const useChat = () => {
             }
         };
         const handleGroupCreated = (data: { group: Group }) => {
-            console.log(data);
             if (data.group) {
                 setGroups((prevGroups) => [...prevGroups, data.group]);
             } else {
@@ -241,7 +240,6 @@ const useChat = () => {
                 new Date(a.lastMessageAt).getTime()
             );
         });
-
         setCombinedList(list);
         setLoading(false);
     }, [chats, groups, contacts, userDetails]);
@@ -252,7 +250,7 @@ const useChat = () => {
 
     useLayoutEffect(() => {
         if (chatOpened && chatOpened.members.length > 0) {
-            updateMembers(chatOpened.members, contacts);
+            updateMembers(chatOpened.members, userDetails?._id || "", contacts);
         }
     }, [chatOpened, contacts]);
 

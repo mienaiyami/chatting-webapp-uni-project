@@ -86,7 +86,7 @@ export function Sidebar() {
                 <div className="p-4 relative">
                     <Search
                         size={"1.3em"}
-                        className="opacity-40 pointer-events-none absolute top top-1/2 -translate-y-1/2 left-6 "
+                        className="text-muted-foreground pointer-events-none absolute top top-1/2 -translate-y-1/2 left-6 "
                     />
                     <Input
                         placeholder="Search"
@@ -95,21 +95,25 @@ export function Sidebar() {
                         onChange={(e) => setSearchQuery(e.target.value)}
                     />
                 </div>
-                {combinedList.length === 0 && (
-                    <div className="flex-grow flex items-center justify-center select-none">
-                        <span className="text-muted-foreground">
-                            No contacts/chat found
-                        </span>
-                    </div>
-                )}
                 <ScrollArea className="flex-grow">
-                    {combinedList
-                        .filter((e) =>
+                    {(() => {
+                        const filteredList = combinedList.filter((e) =>
                             e.displayName
                                 .toLowerCase()
                                 .includes(searchQuery.toLowerCase())
-                        )
-                        .map((chat) => (
+                        );
+
+                        if (filteredList.length === 0) {
+                            return (
+                                <div className="flex-grow flex items-center justify-center select-none">
+                                    <span className="text-muted-foreground">
+                                        No contacts/chat found
+                                    </span>
+                                </div>
+                            );
+                        }
+
+                        return filteredList.map((chat) => (
                             <Button
                                 variant="ghost"
                                 key={
@@ -143,10 +147,7 @@ export function Sidebar() {
                                     } else {
                                         setChatOpened({
                                             ...chat,
-                                            members:
-                                                chat.type === "chat"
-                                                    ? chat?.members || []
-                                                    : [],
+                                            members: chat.members || [],
                                         });
                                     }
                                 }}
@@ -186,7 +187,8 @@ export function Sidebar() {
                                     </span>
                                 </div>
                             </Button>
-                        ))}
+                        ));
+                    })()}
                 </ScrollArea>
             </TooltipProvider>
         </div>

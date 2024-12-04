@@ -4,6 +4,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 
 interface ReplyPreviewProps {
     message: Message;
+    // sender: SimpleChatMember;
     // onClick: () => void;
 }
 
@@ -11,13 +12,13 @@ const ReplyPreview: React.FC<ReplyPreviewProps> = ({ message }) => {
     if (!message.repliedTo) {
         throw new Error("Message does not have a repliedTo field");
     }
+    //todo: optimize
     const getMemberDetails = useMemberDetails();
-
     const sender = getMemberDetails(message.repliedTo.senderId);
 
     return (
         <div
-            className="flex items-center gap-1 hover:underline"
+            className="flex items-center gap-1 hover:underline select-none"
             role="button"
             tabIndex={0}
             onClick={() => {

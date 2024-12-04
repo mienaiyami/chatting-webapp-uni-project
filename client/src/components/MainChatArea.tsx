@@ -50,57 +50,6 @@ import ReplyPreview from "./ReplyPreview";
 import MessageItem from "./MessageItem";
 import useMemberStore from "@/store/membersStore";
 
-const renderers: ReactMarkdownComponents = {
-    p: ({ children }) => <p className="text-accent-foreground">{children}</p>,
-    strong: ({ children }) => <strong className="font-bold">{children}</strong>,
-    em: ({ children }) => <em className="italic">{children}</em>,
-    s: ({ children }) => <s className="line-through">{children}</s>,
-
-    code: ({ children }) => (
-        <code className="bg-accent text-accent-foreground p-1 rounded">
-            {children}
-        </code>
-    ),
-    pre: ({ children }) => (
-        <pre className="bg-accent text-accent-foreground p-1 rounded whitespace-pre overflow-x-auto">
-            {children}
-        </pre>
-    ),
-    blockquote: ({ children }) => (
-        <blockquote className="border-l-4 border-gray-500 pl-4 italic">
-            {children}
-        </blockquote>
-    ),
-    a: ({ href, children }) => (
-        <a href={href} target="_blank" className="text-blue-500 underline">
-            {children}
-        </a>
-    ),
-    ul: ({ children }) => <ul className="list-disc list-inside">{children}</ul>,
-    ol: ({ children }) => (
-        <ol className="list-decimal list-inside">{children}</ol>
-    ),
-    li: ({ children }) => <li className="mb-1">{children}</li>,
-    h1: ({ children }) => (
-        <h1 className="text-2xl font-bold mb-2">{children}</h1>
-    ),
-    h2: ({ children }) => (
-        <h2 className="text-xl font-bold mb-2">{children}</h2>
-    ),
-    h3: ({ children }) => (
-        <h3 className="text-lg font-bold mb-2">{children}</h3>
-    ),
-    h4: ({ children }) => (
-        <h4 className="text-base font-bold mb-2">{children}</h4>
-    ),
-    h5: ({ children }) => (
-        <h5 className="text-sm font-bold mb-2">{children}</h5>
-    ),
-    h6: ({ children }) => (
-        <h6 className="text-xs font-bold mb-2">{children}</h6>
-    ),
-};
-
 function formatFileSize(bytes: number): string {
     const sizes = ["Bytes", "KB", "MB", "GB"];
     if (bytes === 0) return "0 Bytes";
@@ -109,11 +58,12 @@ function formatFileSize(bytes: number): string {
 }
 
 export function MainChatArea() {
-    const { messages, sendMessage, deleteMessage, editMessage } = useMessages();
+    const { messages, sendMessage, deleteMessage, editMessage, handleTyping } =
+        useMessages();
     const { chatOpened } = useChatOpenedStore();
     const { updateContact } = useUserContacts();
     const userDetails = useUserDetailStore((state) => state.userDetails)!;
-    const { socket } = useSocket();
+    const { socket, onlineContacts, typingUsers } = useSocket();
     const [newMessage, setNewMessage] = useState("");
     const { membersMap } = useMemberStore();
 
@@ -179,7 +129,9 @@ export function MainChatArea() {
     //     }
     // }, [chatOpened, initializeMessages, resetMessages]);
 
+    //todo move to provider
     useEffect(() => {
+        setNewMessage("");
         if (socket && chatOpened) {
             socket.emit(SOCKET_EVENTS.JOIN_ROOM, chatOpened._id);
             return () => {
@@ -196,7 +148,7 @@ export function MainChatArea() {
     useEffect(() => {
         scrollAreaRef.current?.querySelector(":scope >div")?.scrollTo({
             top: 999999999,
-            behavior: "smooth",
+            behavior: "auto",
         });
     }, [messages]);
 
@@ -218,7 +170,6 @@ export function MainChatArea() {
     const handleRemoveFile = () => {
         setSelectedFile(null);
     };
-
     if (!chatOpened)
         return (
             <div className="flex-1 grid place-items-center select-none border rounded-r-lg border-l-0 max-h-screen">
@@ -242,7 +193,28 @@ export function MainChatArea() {
                     </Avatar>
                     <div>
                         <h2 className="font-bold">{chatOpened.displayName}</h2>
-                        <p className="text-xs text-muted-foreground">Online</p>
+                        <p className="text-xs text-muted-foreground">
+                            {typingUsers.length > 0
+                                ? `${new Intl.ListFormat("en").format(
+                                      typingUsers.map(
+                                          (id) =>
+                                              membersMap.get(id)?.username || ""
+                                      )
+                                  )} is typing...`
+                                : chatOpened.type === "chat"
+                                ? onlineContacts.includes(
+                                      chatOpened.members.find(
+                                          (m) => m.user._id !== userDetails._id
+                                      )!.user._id
+                                  )
+                                    ? "Online"
+                                    : "Offline"
+                                : `${new Intl.ListFormat("en").format(
+                                      Array.from(membersMap.values())
+                                          .map((e) => e.username)
+                                          .sort((a, b) => a.localeCompare(b))
+                                  )}`}
+                        </p>
                     </div>
                 </div>
                 <div>
@@ -365,12 +337,16 @@ export function MainChatArea() {
                             editMessage={editMessage}
                             sender={
                                 membersMap.get(message.senderId) || {
-                                    username: "Unknown",
+                                    username: `Unknown (${message.senderId})`,
                                     avatarUrl: "",
                                     role: "member",
                                 }
                             }
-                            userDetails={userDetails}
+                            isCurrentUser={userDetails._id === message.senderId}
+                            isCurrentUserAdmin={
+                                membersMap.get(userDetails._id)?.role ===
+                                "admin"
+                            }
                             setEditingMessage={() => {
                                 console.log("Setting editing message");
                                 setEditingMessage(message);
@@ -474,7 +450,10 @@ export function MainChatArea() {
                         value={newMessage}
                         rows={1}
                         className="resize-none min-h-fit max-h-32 row-auto"
-                        onChange={(e) => setNewMessage(e.target.value)}
+                        onChange={(e) => {
+                            setNewMessage(e.target.value);
+                            handleTyping();
+                        }}
                         onKeyDown={(e) => {
                             if (e.key === "Enter") {
                                 if (!e.shiftKey) {

@@ -53,7 +53,6 @@ io.on("connection", async (socket) => {
             contact.userId.toString()
         );
         contactIds.forEach((contactId) => {
-            //todo test
             socket.to(contactId).emit(SOCKET_EVENTS.USER_ONLINE, { userId });
         });
     }
@@ -66,24 +65,49 @@ io.on("connection", async (socket) => {
     socket.join(userId);
 
     socket.on(SOCKET_EVENTS.JOIN_ROOM, async (chatId: string) => {
-        if (!mongoose.Types.ObjectId.isValid(chatId)) return;
-        const chat = await Chat.findOne({
-            _id: chatId,
-            "members.user": userId,
-        }).populate({
-            path: "messages",
-            match: { deletedAt: null },
-            populate: {
-                path: "repliedTo",
-                model: "ChatMessage",
-            },
-        });
+        try {
+            if (!mongoose.Types.ObjectId.isValid(chatId)) return;
 
-        if (!chat) return;
-        socket.join(chatId);
-        socket.emit(SOCKET_EVENTS.MESSAGES, {
-            messages: chat.messages || [],
-        });
+            const [chat, group] = await Promise.all([
+                Chat.findOne({
+                    _id: chatId,
+                    "members.user": userId,
+                }).populate({
+                    path: "messages",
+                    match: { deletedAt: null },
+                    populate: {
+                        path: "repliedTo",
+                        model: "ChatMessage",
+                    },
+                }),
+                Group.findOne({
+                    _id: chatId,
+                    "members.user": userId,
+                }).populate({
+                    path: "messages",
+                    match: { deletedAt: null },
+                    populate: {
+                        path: "repliedTo",
+                        model: "ChatMessage",
+                    },
+                }),
+            ]);
+
+            const conversation = chat || group;
+            if (!conversation) {
+                socket.emit("error", {
+                    message: "Conversation not found or access denied.",
+                });
+                return;
+            }
+
+            socket.join(chatId);
+            socket.emit(SOCKET_EVENTS.MESSAGES, {
+                messages: conversation.messages || [],
+            });
+        } catch (error) {
+            socket.emit("error", { message: error.message });
+        }
     });
 
     socket.on(SOCKET_EVENTS.GET_ONLINE_CONTACTS, async () => {
@@ -191,9 +215,15 @@ io.on("connection", async (socket) => {
                 });
                 await message.populate("repliedTo");
 
-                await Chat.findByIdAndUpdate(chatId, {
-                    $push: { messages: message._id },
-                });
+                if (chat) {
+                    await Chat.findByIdAndUpdate(chatId, {
+                        $push: { messages: message._id },
+                    });
+                } else if (group) {
+                    await Group.findByIdAndUpdate(chatId, {
+                        $push: { messages: message._id },
+                    });
+                }
 
                 socket.emit(SOCKET_EVENTS.NEW_MESSAGE, {
                     ...message.toJSON(),
@@ -202,7 +232,7 @@ io.on("connection", async (socket) => {
 
                 socket
                     .to(
-                        chattt.members
+                        conversation.members
                             .filter(
                                 (member) => member.user.toString() !== userId
                             )
@@ -258,23 +288,47 @@ io.on("connection", async (socket) => {
 
     socket.on(SOCKET_EVENTS.USER_TYPING, async (chatId: string) => {
         if (!mongoose.Types.ObjectId.isValid(chatId)) return;
-
-        const chat = await Chat.findOne({
-            _id: chatId,
-            "members.user": userId,
-        });
-        if (!chat) return;
-
+        const [chat, group] = await Promise.all([
+            Chat.findOne({
+                _id: chatId,
+                "members.user": userId,
+            }),
+            Group.findOne({
+                _id: chatId,
+                "members.user": userId,
+            }),
+        ]);
+        const conversation = chat || group;
+        if (!conversation) {
+            socket.emit("error", {
+                message: "Conversation not found or access denied.",
+            });
+            return;
+        }
+        // console.log(chatId, socket.rooms, io.sockets.adapter.rooms.get(chatId));
         socket.to(chatId).emit(SOCKET_EVENTS.USER_TYPING, { userId });
     });
 
     socket.on(SOCKET_EVENTS.USER_STOP_TYPING, async (chatId: string) => {
         if (!mongoose.Types.ObjectId.isValid(chatId)) return;
-        const chat = await Chat.findOne({
-            _id: chatId,
-            "members.user": userId,
-        });
-        if (!chat) return;
+        const [chat, group] = await Promise.all([
+            Chat.findOne({
+                _id: chatId,
+                "members.user": userId,
+            }),
+            Group.findOne({
+                _id: chatId,
+                "members.user": userId,
+            }),
+        ]);
+
+        const conversation = chat || group;
+        if (!conversation) {
+            socket.emit("error", {
+                message: "Conversation not found or access denied.",
+            });
+            return;
+        }
 
         socket.to(chatId).emit(SOCKET_EVENTS.USER_STOP_TYPING, { userId });
     });
@@ -367,9 +421,26 @@ io.on("connection", async (socket) => {
                     throw new Error("Invalid member ID format");
                 }
 
+                let displayPictureUrl = "";
+                if (displayPicture) {
+                    const base64Data = displayPicture.replace(
+                        /^data:image\/\w+;base64,/,
+                        ""
+                    );
+                    const buffer = Buffer.from(base64Data, "base64");
+                    const fileExt =
+                        displayPicture.match(/^data:image\/(\w+);base64,/)[1] ||
+                        "jpg";
+                    const uniqueFileName = `${globalThis.crypto.randomUUID()}.${fileExt}`;
+                    const filePath = path.join(UPLOAD_DIR, uniqueFileName);
+                    fs.writeFileSync(filePath, buffer);
+
+                    displayPictureUrl = `/uploads/${uniqueFileName}`;
+                }
+
                 const newGroup = await Group.create({
                     name,
-                    displayPicture,
+                    displayPicture: displayPictureUrl,
                     members: [
                         { user: userId, role: "admin" },
                         ...members.map((memberId) => ({
@@ -544,27 +615,50 @@ io.on("connection", async (socket) => {
                     return;
                 }
 
-                const chat = await Chat.findOne({
-                    _id: chatId,
-                    "members.user": userId,
-                });
+                const [chat, group] = await Promise.all([
+                    Chat.findOne({
+                        _id: chatId,
+                        "members.user": userId,
+                    }),
+                    Group.findOne({
+                        _id: chatId,
+                        "members.user": userId,
+                    }),
+                ]);
+                const conversation = chat || group;
+                if (!conversation) {
+                    socket.emit("error", {
+                        message: "Conversation not found or access denied.",
+                    });
+                    return;
+                }
 
-                if (!chat) return;
+                const member = conversation.members.find(
+                    (m) => m.user.toString() === userId
+                );
+                const isAdmin = member?.role === "admin";
+                const message = await ChatMessage.findOneAndUpdate(
+                    {
+                        _id: messageId,
+                        chatId,
+                        $or: [
+                            { senderId: userId },
+                            { $expr: { $eq: [isAdmin, true] } },
+                        ],
+                    },
+                    { deletedAt: new Date() }
+                );
 
-                const message = await ChatMessage.findOne({
-                    _id: messageId,
-                    chatId,
-                    senderId: userId,
-                });
-
-                if (!message) return;
-
-                await ChatMessage.findByIdAndUpdate(messageId, {
-                    deletedAt: new Date(),
-                });
+                if (!message) {
+                    socket.emit("error", {
+                        message:
+                            "Message not found or you don't have permission to delete",
+                    });
+                    return;
+                }
 
                 io.to(
-                    chat.members.map((member) => member.user.toString())
+                    conversation.members.map((member) => member.user.toString())
                 ).emit(SOCKET_EVENTS.MESSAGE_DELETED, {
                     chatId,
                     messageId,

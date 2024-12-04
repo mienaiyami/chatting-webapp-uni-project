@@ -79,7 +79,8 @@ interface MessageItemProps {
     editingMessage?: string;
     selectedForReply: boolean;
     sender: SimpleChatMember;
-    userDetails: UserDetails;
+    isCurrentUser: boolean;
+    isCurrentUserAdmin: boolean;
     chatOpened: ChatGroupDetails;
     deleteMessage: (chatId: string, messageId: string) => void;
     editMessage: (chatId: string, messageId: string, text: string) => void;
@@ -96,19 +97,14 @@ const MessageItem = memo<MessageItemProps>(
         selectedForReply,
         chatOpened,
         sender,
-        userDetails,
+        isCurrentUser,
+        isCurrentUserAdmin,
         deleteMessage,
         editMessage,
         setSelectedForReply,
         setEditingMessage,
         clearEditingMessageStatus,
     }) => {
-        const isFromCurrentUser = message.senderId === userDetails._id;
-        const isCurrentUserAdmin = false;
-        // const isFirstMessage =
-        //     index === 0 ||
-        //     message.repliedTo ||
-        //     (index > 0 && messagesArray[index - 1].senderId !== message.senderId);
         return (
             <div
                 data-message-id={message._id}
@@ -135,7 +131,7 @@ const MessageItem = memo<MessageItemProps>(
                                 Reply
                             </TooltipContent>
                         </Tooltip>
-                        {isFromCurrentUser && (
+                        {isCurrentUser && (
                             <Tooltip>
                                 <TooltipTrigger asChild>
                                     <Button
@@ -157,7 +153,7 @@ const MessageItem = memo<MessageItemProps>(
                                 </TooltipContent>
                             </Tooltip>
                         )}
-                        {(isFromCurrentUser ||
+                        {(isCurrentUser ||
                             (chatOpened.type === "group" &&
                                 isCurrentUserAdmin)) && (
                             <Tooltip>
@@ -173,11 +169,17 @@ const MessageItem = memo<MessageItemProps>(
                                         }}
                                     >
                                         <Trash2 className="aspect-square h-4" />
-                                        <span className="sr-only">Delete</span>
+                                        <span className="sr-only">
+                                            Delete{" "}
+                                            {isCurrentUserAdmin
+                                                ? "as Admin"
+                                                : ""}
+                                        </span>
                                     </Button>
                                 </TooltipTrigger>
                                 <TooltipContent className="text-xs px-2 py-1">
-                                    Delete
+                                    Delete{" "}
+                                    {isCurrentUserAdmin ? "as Admin" : ""}
                                 </TooltipContent>
                             </Tooltip>
                         )}
@@ -219,7 +221,7 @@ const MessageItem = memo<MessageItemProps>(
                             </Avatar>
                             <div className="flex flex-row gap-2 items-center">
                                 <h3 className="text-sm">{sender.username}</h3>
-                                <Tooltip delayDuration={1000}>
+                                <Tooltip delayDuration={500}>
                                     <TooltipTrigger asChild>
                                         <span className="text-xs text-muted-foreground">
                                             {formatDate(message.createdAt)}
@@ -234,7 +236,7 @@ const MessageItem = memo<MessageItemProps>(
                     </div>
                 )}
                 <div className="flex flex-row items-start gap-1.5 w-full">
-                    <Tooltip delayDuration={1000}>
+                    <Tooltip delayDuration={500}>
                         <TooltipTrigger asChild>
                             <div className="w-8 pt-2 pl-1 group-hover/message:opacity-100 opacity-0 select-none text-xs text-accent-foreground/30">
                                 {new Date(message.createdAt).toLocaleTimeString(

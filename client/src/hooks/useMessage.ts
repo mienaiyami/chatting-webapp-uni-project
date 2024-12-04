@@ -1,4 +1,4 @@
-import { useCallback, useLayoutEffect } from "react";
+import { useCallback, useLayoutEffect, useRef } from "react";
 import useMessagesStore from "@/store/messagesStore";
 import { useSocket } from "@/socket/SocketProvider";
 import { SOCKET_EVENTS } from "@/socket/events";
@@ -35,6 +35,7 @@ const useMessages = () => {
     const editMessage_store = useMessagesStore((state) => state.editMessage);
     const chatOpened = useChatOpenedStore((state) => state.chatOpened);
     const { socket } = useSocket();
+    const typingTimeoutRef = useRef<NodeJS.Timeout>();
 
     const initializeMessages = useCallback(
         (msgs: Message[]) => {
@@ -176,6 +177,37 @@ const useMessages = () => {
         };
     }, [socket, chatOpened, setMessages]);
 
+    const emitTyping = useCallback(
+        (isTyping: boolean) => {
+            if (!socket || !chatOpened) return;
+
+            if (isTyping) {
+                socket.emit(SOCKET_EVENTS.USER_TYPING, chatOpened._id);
+            } else {
+                socket.emit(SOCKET_EVENTS.USER_STOP_TYPING, chatOpened._id);
+            }
+        },
+        [socket, chatOpened]
+    );
+
+    const handleTyping = useCallback(() => {
+        emitTyping(true);
+        if (typingTimeoutRef.current) {
+            clearTimeout(typingTimeoutRef.current);
+        }
+        typingTimeoutRef.current = setTimeout(() => {
+            emitTyping(false);
+        }, 1500);
+    }, [emitTyping]);
+
+    useLayoutEffect(() => {
+        return () => {
+            if (typingTimeoutRef.current) {
+                clearTimeout(typingTimeoutRef.current);
+            }
+        };
+    }, []);
+
     return {
         messages,
         sendMessage,
@@ -183,6 +215,7 @@ const useMessages = () => {
         resetMessages,
         deleteMessage,
         editMessage,
+        handleTyping,
     };
 };
 
