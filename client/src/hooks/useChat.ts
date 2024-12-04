@@ -55,11 +55,36 @@ const useChat = () => {
                     { userId2 },
                     (response: { chat?: Chat; error?: string }) => {
                         if (response.error) {
-                            setError(response.error);
+                            // setError(response.error);
                             toast.error(response.error);
                             reject(null);
                         } else if (response.chat) {
                             resolve(response.chat!);
+                        }
+                    }
+                );
+            });
+        },
+        [socket]
+    );
+    const createGroup = useCallback(
+        async (data: {
+            name: string;
+            members: string[];
+            displayPicture?: string;
+        }) => {
+            if (!socket) return null;
+            return new Promise<Group | null>((resolve, reject) => {
+                socket.emit(
+                    SOCKET_EVENTS.CREATE_GROUP,
+                    data,
+                    (response: { group?: Group; error?: string }) => {
+                        if (response.error) {
+                            // setError(response.error);
+                            toast.error(response.error);
+                            reject(null);
+                        } else if (response.group) {
+                            resolve(response.group);
                         }
                     }
                 );
@@ -107,6 +132,14 @@ const useChat = () => {
                 toast.error("Failed to create chat");
             }
         };
+        const handleGroupCreated = (data: { group: Group }) => {
+            console.log(data);
+            if (data.group) {
+                setGroups((prevGroups) => [...prevGroups, data.group]);
+            } else {
+                toast.error("Failed to create group");
+            }
+        };
 
         const handleError = (data: { message: any }) => {
             setLoading(false);
@@ -124,12 +157,14 @@ const useChat = () => {
 
         socket.on(SOCKET_EVENTS.CHATS_AND_GROUPS, handleChatsAndGroups);
         socket.on(SOCKET_EVENTS.CHAT_CREATED, handleChatCreated);
+        socket.on(SOCKET_EVENTS.GROUP_CREATED, handleGroupCreated);
         socket.on("error", handleError);
         socket.on(SOCKET_EVENTS.NEW_MESSAGE, handleNewMessage);
 
         return () => {
             socket.off(SOCKET_EVENTS.CHATS_AND_GROUPS, handleChatsAndGroups);
             socket.off(SOCKET_EVENTS.CHAT_CREATED, handleChatCreated);
+            socket.off(SOCKET_EVENTS.GROUP_CREATED, handleGroupCreated);
             socket.off("error", handleError);
             socket.off(SOCKET_EVENTS.NEW_MESSAGE, handleNewMessage);
         };
@@ -224,6 +259,7 @@ const useChat = () => {
     return {
         loading,
         createChat,
+        createGroup,
         refetch: fetchChatsAndGroups,
     };
 };

@@ -24,6 +24,7 @@ import { toast } from "sonner";
 import searchUsers from "@/requests/searchUsers";
 import { Label } from "./ui/label";
 import { ScrollArea, ScrollBar } from "./ui/scroll-area";
+import useChat from "@/hooks/useChat";
 
 export default function CreateGroupDialog() {
     const [searchQuery, setSearchQuery] = useState("");
@@ -31,6 +32,8 @@ export default function CreateGroupDialog() {
     const [selectedUsers, setSelectedUsers] = useState<UserDetails[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [groupName, setGroupName] = useState("");
+
+    const { createGroup } = useChat();
 
     const [displayPicture, setDisplayPicture] = useState<string | null>(null);
 
@@ -73,10 +76,35 @@ export default function CreateGroupDialog() {
             toast.error("Select at least one user to add to the group");
             return;
         }
+        try {
+            const group = await createGroup({
+                name: groupName.trim(),
+                members: selectedUsers.map((user) => user._id),
+                displayPicture: displayPicture || undefined,
+            });
+
+            if (group) {
+                toast.success("Group created successfully");
+                setGroupName("");
+                setSelectedUsers([]);
+                setDisplayPicture(null);
+            }
+        } catch (error) {
+            console.error(error);
+            toast.error("Failed to create group");
+        }
     };
 
     return (
-        <Dialog>
+        <Dialog
+            onOpenChange={(open) => {
+                if (!open) {
+                    setGroupName("");
+                    setSelectedUsers([]);
+                    setDisplayPicture(null);
+                }
+            }}
+        >
             <Tooltip>
                 <TooltipTrigger asChild>
                     <DialogTrigger asChild>
@@ -171,7 +199,7 @@ export default function CreateGroupDialog() {
                                                 toggleUserSelection(user)
                                             }
                                             key={user._id}
-                                            className="flex items-center space-x-2 bg-accent/50 rounded-full p-1 text-xs h-8"
+                                            className="flex items-center space-x-2 bg-accent/50 rounded-full p-1 text-xs h-6"
                                         >
                                             <Avatar className="w-4 h-4">
                                                 <AvatarImage
@@ -274,7 +302,11 @@ export default function CreateGroupDialog() {
                             Cancel
                         </Button>
                     </DialogClose>
-                    <Button onClick={handleCreateGroup}>Create Group</Button>
+                    <DialogClose asChild>
+                        <Button onClick={handleCreateGroup}>
+                            Create Group
+                        </Button>
+                    </DialogClose>
                 </div>
             </DialogContent>
         </Dialog>

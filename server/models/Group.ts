@@ -58,7 +58,7 @@ const groupSchema = new mongoose.Schema(
         messages: [
             {
                 type: mongoose.Schema.Types.ObjectId,
-                ref: "Message",
+                ref: "ChatMessage",
             },
         ],
     },

@@ -169,7 +169,6 @@ const useMessages = () => {
         };
 
         socket.on(SOCKET_EVENTS.MESSAGES, handleMessagesReceived);
-
         socket.emit(SOCKET_EVENTS.GET_MESSAGES, { chatId: chatOpened._id });
 
         return () => {

@@ -7,7 +7,7 @@ interface ChatStore {
     loading: boolean;
     error: Error | string | null;
     setChats: (chats: Chat[] | ((prevChats: Chat[]) => Chat[])) => void;
-    setGroups: (groups: Group[]) => void;
+    setGroups: (groups: Group[] | ((prevGroups: Group[]) => Group[])) => void;
     setCombinedList: (list: CombinedChatListType[]) => void;
     setLoading: (loading: boolean) => void;
     setError: (error: Error | string | null) => void;
@@ -32,7 +32,13 @@ const useChatStore = create<ChatStore>((set) => ({
             set({ chats });
         }
     },
-    setGroups: (groups) => set({ groups }),
+    setGroups: (groups) => {
+        if (typeof groups === "function") {
+            set((state) => ({ groups: groups(state.groups) }));
+        } else {
+            set({ groups });
+        }
+    },
     setCombinedList: (list) => set({ combinedList: list }),
     setLoading: (loading) => set({ loading }),
     setError: (error) => set({ error }),
