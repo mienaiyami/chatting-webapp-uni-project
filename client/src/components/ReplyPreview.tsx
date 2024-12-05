@@ -20,7 +20,7 @@ const ReplyPreview: React.FC<ReplyPreviewProps> = ({ message }) => {
         <div
             className="flex items-center gap-1 hover:underline select-none"
             role="button"
-            tabIndex={0}
+            tabIndex={-1}
             onClick={() => {
                 const element = document.querySelector(
                     `[data-message-id="${message.repliedTo?._id}"]`

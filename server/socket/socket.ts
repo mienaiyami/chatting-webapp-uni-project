@@ -14,6 +14,7 @@ import UserContacts, { FormattedContact } from "../models/UserContacts";
 import Group from "../models/Group";
 import path from "path";
 import fs from "fs";
+import { group } from "console";
 
 const UPLOAD_DIR = path.join(process.cwd(), "/storage/uploads");
 if (!fs.existsSync(UPLOAD_DIR)) {
@@ -264,7 +265,6 @@ io.on("connection", async (socket) => {
                     "members.user": userId,
                 }),
             ]);
-            // doing this to check if user has access to the chat
             const conversation = chat || group;
             if (!conversation) {
                 socket.emit("error", {
@@ -467,6 +467,160 @@ io.on("connection", async (socket) => {
             }
         }
     );
+    socket.on(
+        SOCKET_EVENTS.EDIT_GROUP,
+        async (
+            data: {
+                groupId: string;
+                name?: string;
+                newMembers?: string[];
+                displayPicture?: string;
+            },
+            cb?: (response: { group?: any; error?: string }) => void
+        ) => {
+            // members can only be added.
+            try {
+                const { groupId, name, newMembers, displayPicture } = data;
+                if (!mongoose.Types.ObjectId.isValid(groupId)) {
+                    throw new Error("Invalid Group ID format");
+                }
+                if (!name && !newMembers && !displayPicture) {
+                    throw new Error("No changes made.");
+                }
+                const validMembers = newMembers?.every((id) =>
+                    mongoose.Types.ObjectId.isValid(id)
+                );
+                if (!validMembers) {
+                    throw new Error("Invalid member ID format");
+                }
+
+                let displayPictureUrl = "";
+                if (displayPicture) {
+                    const base64Data = displayPicture.replace(
+                        /^data:image\/\w+;base64,/,
+                        ""
+                    );
+                    const buffer = Buffer.from(base64Data, "base64");
+                    const fileExt =
+                        displayPicture.match(/^data:image\/(\w+);base64,/)[1] ||
+                        "jpg";
+                    const uniqueFileName = `${globalThis.crypto.randomUUID()}.${fileExt}`;
+                    const filePath = path.join(UPLOAD_DIR, uniqueFileName);
+                    fs.writeFileSync(filePath, buffer);
+                    displayPictureUrl = `/uploads/${uniqueFileName}`;
+                }
+                const updatedGroup = await Group.findByIdAndUpdate(
+                    groupId,
+                    {
+                        ...(name && { name }),
+                        ...(displayPictureUrl && {
+                            displayPicture: displayPictureUrl,
+                        }),
+                        ...(newMembers?.length && {
+                            $push: {
+                                members: {
+                                    $each: newMembers.map((id) => ({
+                                        user: id,
+                                        role: "member",
+                                    })),
+                                },
+                            },
+                        }),
+                    },
+                    { new: true }
+                );
+                await updatedGroup.populate([
+                    {
+                        path: "members.user",
+                        select: "username avatarUrl",
+                    },
+                    {
+                        path: "messages",
+                        options: { sort: { createdAt: -1 }, limit: 1 },
+                    },
+                ]);
+                const memberIds = [userId, ...newMembers];
+                io.to(memberIds).emit(SOCKET_EVENTS.GROUP_EDITED, {
+                    group: updatedGroup,
+                });
+
+                if (cb) cb({ group: updatedGroup });
+            } catch (error) {
+                console.log(error);
+                if (cb) cb({ error: error.message });
+                socket.emit("error", { message: error.message });
+            }
+        }
+    );
+    socket.on(
+        SOCKET_EVENTS.REMOVE_MEMBER,
+        async ({
+            groupId,
+            userId: targetUserId,
+        }: {
+            groupId: string;
+            userId: string;
+        }) => {
+            try {
+                if (!mongoose.Types.ObjectId.isValid(groupId)) return;
+
+                const group = await Group.findOne({
+                    _id: groupId,
+                    "members.user": userId,
+                });
+
+                if (!group) {
+                    socket.emit("error", { message: "Group not found" });
+                    return;
+                }
+
+                const isAdmin = group.members.find(
+                    (m) => m.user.toString() === userId && m.role === "admin"
+                );
+                const isSelfRemoval = targetUserId === userId;
+
+                if (!isAdmin && !isSelfRemoval) {
+                    socket.emit("error", {
+                        message: "Not authorized to remove members",
+                    });
+                    return;
+                }
+
+                const isLastAdmin =
+                    group.members.filter((m) => m.role === "admin").length ===
+                        1 &&
+                    group.members.find(
+                        (m) =>
+                            m.user.toString() === targetUserId &&
+                            m.role === "admin"
+                    );
+
+                if (isLastAdmin && group.members.length > 1) {
+                    socket.emit("error", {
+                        message:
+                            "Cannot remove the last admin. Make someone else admin first.",
+                    });
+                    return;
+                }
+
+                await Group.updateOne(
+                    { _id: groupId },
+                    { $pull: { members: { user: targetUserId } } }
+                );
+
+                const memberIds = group.members.map((m) => m.user.toString());
+                io.to(memberIds).emit(SOCKET_EVENTS.MEMBER_REMOVED, {
+                    groupId,
+                    userId: targetUserId,
+                    removedBy: userId,
+                });
+                io.sockets.sockets.get(targetUserId)?.leave(groupId);
+            } catch (error) {
+                socket.emit("error", { message: error.message });
+            }
+        }
+    );
+
     socket.on(SOCKET_EVENTS.GET_CONTACTS, async () => {
         try {
             const userContacts = await UserContacts.findOne({

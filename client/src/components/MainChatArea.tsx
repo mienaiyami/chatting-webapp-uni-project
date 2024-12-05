@@ -2,30 +2,15 @@ import { useState, useEffect, useRef, useLayoutEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import {
-    MoreHorizontal,
-    Paperclip,
-    Reply,
-    Edit2,
-    X,
-    Trash2,
-} from "lucide-react";
+import { MoreHorizontal, Paperclip, X } from "lucide-react";
 import useUserDetailStore from "@/store/userDetails";
 import { Textarea } from "@/components/ui/textarea";
-import ReactMarkdown, {
-    Components as ReactMarkdownComponents,
-} from "react-markdown";
-import {
-    Tooltip,
-    TooltipContent,
-    TooltipProvider,
-    TooltipTrigger,
-} from "./ui/tooltip";
+import { TooltipProvider } from "./ui/tooltip";
 import { useSocket } from "@/socket/SocketProvider";
 import { SOCKET_EVENTS } from "@/socket/events";
 import useChatOpenedStore from "@/store/chatOpened";
 import useMessages from "@/hooks/useMessage";
-import { convertHtmlToMarkdown, formatDate, formatDate2 } from "@/utils";
+import { convertHtmlToMarkdown } from "@/utils";
 import { EmojiPicker } from "./ui/EmojiPicker";
 import { toast } from "sonner";
 import {
@@ -45,10 +30,11 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import useUserContacts from "@/hooks/useUserContacts";
-import useChat from "@/hooks/useChat";
-import ReplyPreview from "./ReplyPreview";
 import MessageItem from "./MessageItem";
 import useMemberStore from "@/store/membersStore";
+import { useDialog } from "./ui/use-dialog";
+import { GroupDetailsDialog } from "./GroupDetailsDialog";
+import useChat from "@/hooks/useChat";
 
 function formatFileSize(bytes: number): string {
     const sizes = ["Bytes", "KB", "MB", "GB"];
@@ -61,6 +47,7 @@ export function MainChatArea() {
     const { messages, sendMessage, deleteMessage, editMessage, handleTyping } =
         useMessages();
     const { chatOpened } = useChatOpenedStore();
+    const { removeMember } = useChat();
     const { updateContact } = useUserContacts();
     const userDetails = useUserDetailStore((state) => state.userDetails)!;
     const { socket, onlineContacts, typingUsers } = useSocket();
@@ -78,6 +65,10 @@ export function MainChatArea() {
 
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
+
+    const clearChatDialog = useDialog<HTMLDivElement>();
+    const leaveGroupDialog = useDialog<HTMLDivElement>();
+    const groupDetailsDialog = useDialog<HTMLDivElement>();
 
     useEffect(() => {
         if (msgInputRef.current) {
@@ -218,48 +209,27 @@ export function MainChatArea() {
                     </div>
                 </div>
                 <div>
-                    {/* <Button
-                        variant="ghost"
-                        size="icon"
-                        className="mr-2"
-                        disabled
-                    >
-                        <Phone className="h-5 w-5" />
-                        <span className="sr-only">Call</span>
-                    </Button>
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        className="mr-2"
-                        disabled
-                    >
-                        <Video className="h-5 w-5" />
-                        <span className="sr-only">Video Call</span>
-                    </Button> */}
-
-                    <Dialog>
-                        <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="icon">
-                                    <MoreHorizontal className="h-5 w-5" />
-                                    <span className="sr-only">
-                                        More Options
-                                    </span>
-                                </Button>
-                            </DropdownMenuTrigger>
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon">
+                                <MoreHorizontal className="h-5 w-5" />
+                                <span className="sr-only">More Options</span>
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
                             {chatOpened.type === "chat" && (
-                                <DropdownMenuContent align="end">
-                                    <DialogTrigger asChild>
-                                        <DropdownMenuItem>
-                                            Clear Chat
-                                        </DropdownMenuItem>
-                                    </DialogTrigger>
+                                <>
+                                    <DropdownMenuItem
+                                        {...clearChatDialog.triggerProps}
+                                    >
+                                        Clear Chat
+                                    </DropdownMenuItem>
 
                                     {chatOpened.displayName.includes(
                                         "(Unknown)"
                                     ) && (
                                         <DropdownMenuItem
-                                            onClick={() => {
+                                            onSelect={() => {
                                                 updateContact(
                                                     chatOpened.members.find(
                                                         (m) =>
@@ -273,9 +243,25 @@ export function MainChatArea() {
                                             Add Contact
                                         </DropdownMenuItem>
                                     )}
-                                </DropdownMenuContent>
+                                </>
                             )}
-                        </DropdownMenu>
+                            {chatOpened.type === "group" && (
+                                <>
+                                    <DropdownMenuItem
+                                        {...leaveGroupDialog.triggerProps}
+                                    >
+                                        Leave Group
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                        {...groupDetailsDialog.triggerProps}
+                                    >
+                                        Group Details
+                                    </DropdownMenuItem>
+                                </>
+                            )}
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+                    <Dialog {...clearChatDialog.dialogProps}>
                         <DialogContent>
                             <DialogHeader>
                                 <DialogTitle>Clear Chat</DialogTitle>
@@ -304,6 +290,38 @@ export function MainChatArea() {
                                 </DialogClose>
                             </DialogFooter>
                         </DialogContent>
+                    </Dialog>
+                    <Dialog {...leaveGroupDialog.dialogProps}>
+                        <DialogContent>
+                            <DialogHeader>
+                                <DialogTitle>Leave Group</DialogTitle>
+                                <DialogDescription>
+                                    Are you sure you want to leave this group?
+                                    Only admins can re-add you.
+                                </DialogDescription>
+                            </DialogHeader>
+                            <DialogFooter>
+                                <DialogClose asChild>
+                                    <Button variant="outline">Cancel</Button>
+                                </DialogClose>
+                                <DialogClose asChild>
+                                    <Button
+                                        variant="destructive"
+                                        onClick={() => {
+                                            removeMember({
+                                                groupId: chatOpened._id,
+                                                userId: userDetails._id,
+                                            });
+                                        }}
+                                    >
+                                        Clear
+                                    </Button>
+                                </DialogClose>
+                            </DialogFooter>
+                        </DialogContent>
+                    </Dialog>
+                    <Dialog {...groupDetailsDialog.dialogProps}>
+                        <GroupDetailsDialog />
                     </Dialog>
                 </div>
             </div>

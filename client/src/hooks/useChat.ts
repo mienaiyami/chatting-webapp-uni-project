@@ -92,6 +92,26 @@ const useChat = () => {
         },
         [socket]
     );
+    // using this to get self removed from group as well
+    const removeMember = useCallback(
+        async ({ groupId, userId }: { groupId: string; userId: string }) => {
+            if (!socket) return;
+            socket.emit(SOCKET_EVENTS.REMOVE_MEMBER, { groupId, userId });
+        },
+        [socket]
+    );
+    const editGroup = useCallback(
+        async (data: {
+            groupId: string;
+            name?: string;
+            displayPicture?: string;
+            newMembers?: string[];
+        }) => {
+            if (!socket) return;
+            socket.emit(SOCKET_EVENTS.EDIT_GROUP, data);
+        },
+        [socket]
+    );
 
     // const createChat = useCallback(
     //     async (userId2: string): Promise<Chat | null> => {
@@ -139,6 +159,15 @@ const useChat = () => {
                 toast.error("Failed to create group");
             }
         };
+        const handleGroupEdited = (data: { group: Group }) => {
+            if (data.group) {
+                setGroups((prevGroups) =>
+                    prevGroups.map((g) =>
+                        g._id === data.group._id ? data.group : g
+                    )
+                );
+            }
+        };
 
         const handleError = (data: { message: any }) => {
             setLoading(false);
@@ -154,11 +183,40 @@ const useChat = () => {
             );
         };
 
+        const handleMemberRemoved = ({
+            chatId,
+            userId,
+        }: {
+            chatId: string;
+            userId: string;
+        }) => {
+            if (userId === userDetails._id) {
+                setGroups((prevGroups) =>
+                    prevGroups.filter((g) => g._id !== chatId)
+                );
+            } else {
+                setGroups((prevGroups) =>
+                    prevGroups.map((group) =>
+                        group._id === chatId
+                            ? {
+                                  ...group,
+                                  members: group.members.filter(
+                                      (m) => m.user._id !== userId
+                                  ),
+                              }
+                            : group
+                    )
+                );
+            }
+        };
+
         socket.on(SOCKET_EVENTS.CHATS_AND_GROUPS, handleChatsAndGroups);
         socket.on(SOCKET_EVENTS.CHAT_CREATED, handleChatCreated);
         socket.on(SOCKET_EVENTS.GROUP_CREATED, handleGroupCreated);
+        socket.on(SOCKET_EVENTS.GROUP_EDITED, handleGroupEdited);
         socket.on("error", handleError);
         socket.on(SOCKET_EVENTS.NEW_MESSAGE, handleNewMessage);
+        socket.on(SOCKET_EVENTS.MEMBER_REMOVED, handleMemberRemoved);
 
         return () => {
             socket.off(SOCKET_EVENTS.CHATS_AND_GROUPS, handleChatsAndGroups);
@@ -166,8 +224,9 @@ const useChat = () => {
             socket.off(SOCKET_EVENTS.GROUP_CREATED, handleGroupCreated);
             socket.off("error", handleError);
             socket.off(SOCKET_EVENTS.NEW_MESSAGE, handleNewMessage);
+            socket.off(SOCKET_EVENTS.MEMBER_REMOVED, handleMemberRemoved);
         };
-    }, [socket, chats]);
+    }, [socket, chats, userDetails]);
 
     useEffect(() => {
         if (!userDetails) return;
@@ -252,12 +311,14 @@ const useChat = () => {
         if (chatOpened && chatOpened.members.length > 0) {
             updateMembers(chatOpened.members, userDetails?._id || "", contacts);
         }
-    }, [chatOpened, contacts]);
+    }, [chatOpened, contacts, chats, groups, userDetails]);
 
     return {
         loading,
         createChat,
         createGroup,
+        removeMember,
+        editGroup,
         refetch: fetchChatsAndGroups,
     };
 };

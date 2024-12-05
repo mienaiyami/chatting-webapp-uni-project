@@ -22,16 +22,26 @@ import { toast } from "sonner";
 import searchUsers from "@/requests/searchUsers";
 import { Label } from "./ui/label";
 import { ScrollArea, ScrollBar } from "./ui/scroll-area";
+import { DialogDescription } from "@radix-ui/react-dialog";
 import useChat from "@/hooks/useChat";
+import useChatOpenedStore from "@/store/chatOpened";
 
-export default function CreateGroupDialog() {
+type GroupDetailsEditDialogProps = {
+    open: boolean;
+    onOpenChange: (open: boolean) => void;
+};
+
+export default function GroupDetailsEditDialog({
+    open,
+    onOpenChange,
+}: GroupDetailsEditDialogProps) {
     const [searchQuery, setSearchQuery] = useState("");
     const [users, setUsers] = useState<UserDetails[]>([]);
     const [selectedUsers, setSelectedUsers] = useState<UserDetails[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [groupName, setGroupName] = useState("");
-
-    const { createGroup } = useChat();
+    const { editGroup } = useChat();
+    const { chatOpened } = useChatOpenedStore();
 
     const [displayPicture, setDisplayPicture] = useState<string | null>(null);
 
@@ -40,10 +50,18 @@ export default function CreateGroupDialog() {
 
     useEffect(() => {
         const timeoutId = setTimeout(() => {
-            if (searchQuery) {
+            if (searchQuery && chatOpened) {
                 setIsLoading(true);
                 searchUsers(searchQuery)
-                    .then(setUsers)
+                    .then((users) => {
+                        setUsers(
+                            users.filter((user) => {
+                                return !chatOpened.members.some(
+                                    (e) => e.user._id === user._id
+                                );
+                            })
+                        );
+                    })
                     .catch(() => {
                         toast.error("Failed to search users");
                     })
@@ -65,37 +83,22 @@ export default function CreateGroupDialog() {
         });
     };
 
-    const handleCreateGroup = async () => {
-        if (!groupName.trim()) {
-            toast.error("Group name is required");
-            return;
-        }
-        if (selectedUsers.length === 0) {
-            toast.error("Select at least one user to add to the group");
-            return;
-        }
-        try {
-            const group = await createGroup({
-                name: groupName.trim(),
-                members: selectedUsers.map((user) => user._id),
-                displayPicture: displayPicture || undefined,
-            });
-
-            if (group) {
-                toast.success("Group created successfully");
-                setGroupName("");
-                setSelectedUsers([]);
-                setDisplayPicture(null);
-            }
-        } catch (error) {
-            console.error(error);
-            toast.error("Failed to create group");
-        }
+    const handleEditGroup = async () => {
+        console.log(groupName, selectedUsers, displayPicture);
+        if (!chatOpened) return;
+        editGroup({
+            groupId: chatOpened._id,
+            name: groupName,
+            displayPicture: displayPicture || undefined,
+            newMembers: selectedUsers.map((user) => user._id),
+        });
     };
 
     return (
         <Dialog
+            open={open}
             onOpenChange={(open) => {
+                onOpenChange(open);
                 if (!open) {
                     setGroupName("");
                     setSelectedUsers([]);
@@ -103,23 +106,13 @@ export default function CreateGroupDialog() {
                 }
             }}
         >
-            <Tooltip>
-                <TooltipTrigger asChild>
-                    <DialogTrigger asChild>
-                        <Button variant="ghost" size="icon">
-                            <Users className="h-5 w-5" />
-                            <span className="sr-only">Create Group</span>
-                        </Button>
-                    </DialogTrigger>
-                </TooltipTrigger>
-                <TooltipContent className="text-xs px-2 py-1">
-                    Create Group
-                </TooltipContent>
-            </Tooltip>
             <DialogContent className="sm:max-w-96 select-none">
                 <DialogHeader>
-                    <DialogTitle>Create New Group</DialogTitle>
+                    <DialogTitle>Edit Group Details</DialogTitle>
                 </DialogHeader>
+                <DialogDescription className="text-sm text-muted-foreground">
+                    Leave empty to keep the current value
+                </DialogDescription>
                 <div className="grid gap-2 py-4">
                     <Label className="flex flex-col gap-2 mb-2">
                         Group Name
@@ -278,7 +271,7 @@ export default function CreateGroupDialog() {
                     )}
                     {!isLoading && searchQuery && users.length === 0 && (
                         <p className="text-sm text-muted-foreground">
-                            No users found
+                            No users found / Already in group
                         </p>
                     )}
                 </div>
@@ -295,9 +288,7 @@ export default function CreateGroupDialog() {
                         </Button>
                     </DialogClose>
                     <DialogClose asChild>
-                        <Button onClick={handleCreateGroup}>
-                            Create Group
-                        </Button>
+                        <Button onClick={handleEditGroup}>Create Group</Button>
                     </DialogClose>
                 </div>
             </DialogContent>
