@@ -12,7 +12,6 @@ import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Search, Users, Check } from "lucide-react";
 import useUserDetailStore from "@/store/userDetails";
-import useUserContacts from "@/hooks/useUserContacts";
 import {
     Tooltip,
     TooltipContent,
@@ -22,8 +21,8 @@ import { toast } from "sonner";
 import searchUsers from "@/requests/searchUsers";
 import { Label } from "./ui/label";
 import { ScrollArea, ScrollBar } from "./ui/scroll-area";
-import useChat from "@/hooks/useChat";
-
+import { useChatService } from "@/contexts/ChatServiceProvider";
+import { useSocket } from "@/socket/SocketProvider";
 export default function CreateGroupDialog() {
     const [searchQuery, setSearchQuery] = useState("");
     const [users, setUsers] = useState<UserDetails[]>([]);
@@ -31,12 +30,12 @@ export default function CreateGroupDialog() {
     const [isLoading, setIsLoading] = useState(false);
     const [groupName, setGroupName] = useState("");
 
-    const { createGroup } = useChat();
+    const { createGroup } = useChatService();
 
     const [displayPicture, setDisplayPicture] = useState<string | null>(null);
 
     const currentUser = useUserDetailStore((s) => s.userDetails);
-    const { contacts } = useUserContacts();
+    const { contacts } = useSocket();
 
     useEffect(() => {
         const timeoutId = setTimeout(() => {

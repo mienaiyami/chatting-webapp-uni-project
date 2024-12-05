@@ -9,20 +9,24 @@ import {
 import { io, Socket } from "socket.io-client";
 import { SOCKET_EVENTS } from "./events";
 import useChatOpenedStore from "@/store/chatOpened";
+import { toast } from "sonner";
 
-interface SocketContextType {
+type SocketContextType = {
     socket: Socket | null;
     isConnected: boolean;
     onlineContacts: string[];
     typingUsers: string[];
-}
 
-const SocketContext = createContext<SocketContextType>({
-    socket: null,
-    isConnected: false,
-    onlineContacts: [],
-    typingUsers: [],
-});
+    contacts: Contact[];
+    updateContact: (
+        userId: string,
+        action: "add" | "remove",
+        note?: string,
+        nickname?: string
+    ) => void;
+};
+
+const SocketContext = createContext<SocketContextType | null>(null);
 
 export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({
     children,
@@ -31,12 +35,13 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({
     const [isConnected, setIsConnected] = useState(false);
     const [onlineContacts, setOnlineContacts] = useState<string[]>([]);
     const [typingUsers, setTypingUsers] = useState<string[]>([]);
-    const token = useTokenStore((e) => e.token);
-    const { setChatOpened } = useChatOpenedStore();
+    const [contacts, setContacts] = useState<Contact[]>([]);
+    const token = useTokenStore((state) => state.token);
+    const { chatOpened, setChatOpened } = useChatOpenedStore();
 
     useLayoutEffect(() => {
         if (!token) return;
-        const socketInstance = io("http://localhost:6969", {
+        const socketInstance = io(import.meta.env.VITE_BACKEND_URL, {
             auth: {
                 token,
             },
@@ -44,10 +49,14 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({
         });
 
         socketInstance.on(SOCKET_EVENTS.CONNECT, () => {
-            console.log("Connected to socket server");
             setIsConnected(true);
             setChatOpened(null);
+            socketInstance.emit(SOCKET_EVENTS.GET_CONTACTS);
             socketInstance.emit(SOCKET_EVENTS.GET_ONLINE_CONTACTS);
+        });
+
+        socketInstance.on(SOCKET_EVENTS.DISCONNECT, () => {
+            setIsConnected(false);
         });
 
         socketInstance.on(
@@ -65,16 +74,42 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({
             setOnlineContacts((prev) => prev.filter((id) => id !== userId));
         });
 
-        socketInstance.on(SOCKET_EVENTS.DISCONNECT, () => {
-            setIsConnected(false);
-        });
-
-        socketInstance.on(SOCKET_EVENTS.USER_TYPING, ({ userId }) => {
+        socketInstance.on(SOCKET_EVENTS.USER_TYPING, (userId: string) => {
             setTypingUsers((prev) => [...new Set([...prev, userId])]);
         });
 
-        socketInstance.on(SOCKET_EVENTS.USER_STOP_TYPING, ({ userId }) => {
+        socketInstance.on(SOCKET_EVENTS.USER_STOP_TYPING, (userId: string) => {
             setTypingUsers((prev) => prev.filter((id) => id !== userId));
+        });
+
+        socketInstance.on(
+            SOCKET_EVENTS.CONTACTS,
+            ({ contacts }: { contacts: Contact[] }) => {
+                setContacts(contacts);
+            }
+        );
+
+        socketInstance.on(
+            SOCKET_EVENTS.CONTACT_UPDATED,
+            ({
+                contacts,
+                message,
+            }: {
+                contacts: Contact[];
+                message?: string;
+            }) => {
+                socketInstance.emit(SOCKET_EVENTS.GET_ONLINE_CONTACTS);
+                if (contacts) {
+                    setContacts(contacts);
+                }
+                if (message) {
+                    toast.success(message);
+                }
+            }
+        );
+        socketInstance.on("error", (data: { message: any }) => {
+            console.error(data.message);
+            toast.error(data.message || "An unexpected error occurred");
         });
 
         setSocket(socketInstance);
@@ -84,10 +119,45 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({
         };
     }, [token]);
 
+    useLayoutEffect(() => {
+        if (!socket || !chatOpened) return;
+
+        socket.emit(SOCKET_EVENTS.JOIN_ROOM, chatOpened._id);
+
+        return () => {
+            socket.emit(SOCKET_EVENTS.LEAVE_ROOM, chatOpened._id);
+        };
+    }, [socket, chatOpened]);
+
+    const updateContact = (
+        userId: string,
+        action: "add" | "remove",
+        note = "",
+        nickname = ""
+    ) => {
+        if (!socket) {
+            return;
+        }
+
+        socket.emit(SOCKET_EVENTS.UPDATE_CONTACT, {
+            userId,
+            action,
+            note,
+            nickname,
+        });
+    };
+
+    const value = {
+        socket,
+        isConnected,
+        onlineContacts,
+        typingUsers,
+        contacts,
+        updateContact,
+    };
+
     return (
-        <SocketContext.Provider
-            value={{ socket, isConnected, onlineContacts, typingUsers }}
-        >
+        <SocketContext.Provider value={value}>
             {children}
         </SocketContext.Provider>
     );

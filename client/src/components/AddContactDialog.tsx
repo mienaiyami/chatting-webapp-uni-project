@@ -15,8 +15,8 @@ import { Trash, UserPlus, UserSearch } from "lucide-react";
 import useUserDetailStore from "@/store/userDetails";
 import { toast } from "sonner";
 import searchUsers from "@/requests/searchUsers";
-import useUserContacts from "@/hooks/useUserContacts";
 import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip";
+import { useSocket } from "@/socket/SocketProvider";
 
 export default function AddContactDialog() {
     //todo use some sort of cache?
@@ -25,7 +25,7 @@ export default function AddContactDialog() {
     const [isLoading, setIsLoading] = useState(false);
 
     const currentUser = useUserDetailStore((s) => s.userDetails);
-    const { contacts, updateContact } = useUserContacts();
+    const { contacts, updateContact } = useSocket();
 
     useEffect(() => {
         const timeoutId = setTimeout(() => {

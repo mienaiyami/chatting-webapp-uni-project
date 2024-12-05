@@ -12,19 +12,14 @@ import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Search, Users, Check } from "lucide-react";
 import useUserDetailStore from "@/store/userDetails";
-import useUserContacts from "@/hooks/useUserContacts";
-import {
-    Tooltip,
-    TooltipContent,
-    TooltipTrigger,
-} from "@/components/ui/tooltip";
 import { toast } from "sonner";
 import searchUsers from "@/requests/searchUsers";
 import { Label } from "./ui/label";
 import { ScrollArea, ScrollBar } from "./ui/scroll-area";
 import { DialogDescription } from "@radix-ui/react-dialog";
-import useChat from "@/hooks/useChat";
 import useChatOpenedStore from "@/store/chatOpened";
+import { useChatService } from "@/contexts/ChatServiceProvider";
+import { useSocket } from "@/socket/SocketProvider";
 
 type GroupDetailsEditDialogProps = {
     open: boolean;
@@ -40,13 +35,13 @@ export default function GroupDetailsEditDialog({
     const [selectedUsers, setSelectedUsers] = useState<UserDetails[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [groupName, setGroupName] = useState("");
-    const { editGroup } = useChat();
+    const { editGroup } = useChatService();
     const { chatOpened } = useChatOpenedStore();
 
     const [displayPicture, setDisplayPicture] = useState<string | null>(null);
 
     const currentUser = useUserDetailStore((s) => s.userDetails);
-    const { contacts } = useUserContacts();
+    const { contacts } = useSocket();
 
     useEffect(() => {
         const timeoutId = setTimeout(() => {

@@ -287,50 +287,61 @@ io.on("connection", async (socket) => {
     });
 
     socket.on(SOCKET_EVENTS.USER_TYPING, async (chatId: string) => {
-        if (!mongoose.Types.ObjectId.isValid(chatId)) return;
-        const [chat, group] = await Promise.all([
-            Chat.findOne({
-                _id: chatId,
-                "members.user": userId,
-            }),
-            Group.findOne({
-                _id: chatId,
-                "members.user": userId,
-            }),
-        ]);
-        const conversation = chat || group;
-        if (!conversation) {
-            socket.emit("error", {
-                message: "Conversation not found or access denied.",
-            });
-            return;
+        try {
+            if (!mongoose.Types.ObjectId.isValid(chatId))
+                throw new Error("Invalid chat ID format");
+            const [chat, group] = await Promise.all([
+                Chat.findOne({
+                    _id: chatId,
+                    "members.user": userId,
+                }),
+                Group.findOne({
+                    _id: chatId,
+                    "members.user": userId,
+                }),
+            ]);
+            console.log("user typing", userId, chatId);
+            const conversation = chat || group;
+            if (!conversation) {
+                socket.emit("error", {
+                    message: "Conversation not found or access denied.",
+                });
+                return;
+            }
+            // console.log(chatId, socket.rooms, io.sockets.adapter.rooms.get(chatId));
+            socket.to(chatId).emit(SOCKET_EVENTS.USER_TYPING, userId);
+        } catch (error) {
+            socket.emit("error", { message: error.message });
         }
-        // console.log(chatId, socket.rooms, io.sockets.adapter.rooms.get(chatId));
-        socket.to(chatId).emit(SOCKET_EVENTS.USER_TYPING, { userId });
     });
 
     socket.on(SOCKET_EVENTS.USER_STOP_TYPING, async (chatId: string) => {
-        if (!mongoose.Types.ObjectId.isValid(chatId)) return;
-        const [chat, group] = await Promise.all([
-            Chat.findOne({
-                _id: chatId,
-                "members.user": userId,
-            }),
-            Group.findOne({
-                _id: chatId,
-                "members.user": userId,
-            }),
-        ]);
+        try {
+            if (!mongoose.Types.ObjectId.isValid(chatId))
+                throw new Error("Invalid chat ID format");
+            const [chat, group] = await Promise.all([
+                Chat.findOne({
+                    _id: chatId,
+                    "members.user": userId,
+                }),
+                Group.findOne({
+                    _id: chatId,
+                    "members.user": userId,
+                }),
+            ]);
 
-        const conversation = chat || group;
-        if (!conversation) {
-            socket.emit("error", {
-                message: "Conversation not found or access denied.",
-            });
-            return;
+            const conversation = chat || group;
+            if (!conversation) {
+                socket.emit("error", {
+                    message: "Conversation not found or access denied.",
+                });
+                return;
+            }
+
+            socket.to(chatId).emit(SOCKET_EVENTS.USER_STOP_TYPING, userId);
+        } catch (error) {
+            socket.emit("error", { message: error.message });
         }
-
-        socket.to(chatId).emit(SOCKET_EVENTS.USER_STOP_TYPING, { userId });
     });
 
     socket.on(SOCKET_EVENTS.GET_CHATS_AND_GROUPS, async () => {
@@ -849,15 +860,24 @@ io.on("connection", async (socket) => {
                     !mongoose.Types.ObjectId.isValid(chatId) ||
                     !mongoose.Types.ObjectId.isValid(messageId)
                 ) {
-                    return;
+                    throw new Error("Invalid chat ID format");
                 }
 
-                const chat = await Chat.findOne({
-                    _id: chatId,
-                    "members.user": userId,
-                });
+                const [chat, group] = await Promise.all([
+                    Chat.findOne({
+                        _id: chatId,
+                        "members.user": userId,
+                    }),
+                    Group.findOne({
+                        _id: chatId,
+                        "members.user": userId,
+                    }),
+                ]);
 
-                if (!chat) return;
+                const conversation = chat || group;
+                if (!conversation) {
+                    throw new Error("Conversation not found or access denied");
+                }
 
                 const message = await ChatMessage.findOne({
                     _id: messageId,
@@ -865,7 +885,11 @@ io.on("connection", async (socket) => {
                     senderId: userId,
                 });
 
-                if (!message) return;
+                if (!message) {
+                    throw new Error(
+                        "Message not found or you don't have permission to edit"
+                    );
+                }
 
                 const updatedMessage = await ChatMessage.findByIdAndUpdate(
                     messageId,
@@ -876,9 +900,8 @@ io.on("connection", async (socket) => {
                     { new: true }
                 ).populate("repliedTo");
 
-                //todo check what happens when repliedTo message is edited, does it show up in chat
                 io.to(
-                    chat.members.map((member) => member.user.toString())
+                    conversation.members.map((member) => member.user.toString())
                 ).emit(SOCKET_EVENTS.MESSAGE_EDITED, {
                     ...updatedMessage.toJSON(),
                 });

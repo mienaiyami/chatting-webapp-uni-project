@@ -6,7 +6,6 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Link } from "react-router-dom";
 import AddContactDialog from "./AddContactDialog";
 import useChatOpenedStore from "@/store/chatOpened";
-import useChat from "@/hooks/useChat";
 import { formatDate } from "@/utils";
 import useUserDetailStore from "@/store/userDetails";
 import {
@@ -18,13 +17,14 @@ import {
 import useChatStore from "@/store/chatStore";
 import { Search, Users } from "lucide-react";
 import CreateGroupDialog from "./CreateGroupDialog";
+import { useChatService } from "@/contexts/ChatServiceProvider";
 
 export function Sidebar() {
     const [searchQuery, setSearchQuery] = useState("");
     const { chatOpened, setChatOpened } = useChatOpenedStore();
     const userDetails = useUserDetailStore((state) => state.userDetails)!;
 
-    const { createChat, loading } = useChat();
+    const { createChat, loading } = useChatService();
     const { combinedList } = useChatStore();
 
     if (loading) {

@@ -33,6 +33,7 @@ import { Separator } from "./ui/separator";
 import { formatDate2 } from "@/utils";
 import { useDialog } from "./ui/use-dialog";
 import GroupDetailsEditDialog from "./GroupDetailsEditDialog";
+import { useChatService } from "@/contexts/ChatServiceProvider";
 
 type GroupDetailsDialogProps = {
     trigger: () => void;
@@ -42,7 +43,7 @@ export function GroupDetailsDialog({ trigger }: GroupDetailsDialogProps) {
     const [searchQuery, setSearchQuery] = useState("");
     const userDetails = useUserDetailStore((s) => s.userDetails);
     const chatOpened = useChatOpenedStore((s) => s.chatOpened);
-
+    const { removeMember } = useChatService();
     const groupDetailsEditDialog = useDialog<HTMLButtonElement>();
 
     if (!chatOpened || chatOpened.type !== "group") return null;

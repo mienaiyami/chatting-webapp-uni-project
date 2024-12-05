@@ -7,6 +7,8 @@ import { toast } from "sonner";
 import { SocketProvider } from "@/socket/SocketProvider";
 import { useNavigate } from "react-router-dom";
 import useTokenStore from "@/store/token";
+import { ChatServiceProvider } from "@/contexts/ChatServiceProvider";
+import { MessageServiceProvider } from "@/contexts/MessageServiceProvider";
 
 export default function ChatApp() {
     const { setUserDetails, userDetails } = useUserDetailStore();
@@ -41,13 +43,17 @@ export default function ChatApp() {
     if (!userDetails) return <div>Loading...</div>;
     return (
         <SocketProvider>
-            <div
-                id="chat-app"
-                className="flex h-screen xl:h-[90vh] w-full xl:w-[90vw]"
-            >
-                <Sidebar />
-                <MainChatArea />
-            </div>
+            <ChatServiceProvider>
+                <MessageServiceProvider>
+                    <div
+                        id="chat-app"
+                        className="flex h-screen xl:h-[90vh] w-full xl:w-[90vw]"
+                    >
+                        <Sidebar />
+                        <MainChatArea />
+                    </div>
+                </MessageServiceProvider>
+            </ChatServiceProvider>
         </SocketProvider>
     );
 }

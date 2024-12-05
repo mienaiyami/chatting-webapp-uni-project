@@ -1,17 +1,16 @@
-import React, { memo, useCallback } from "react";
+import { memo, useCallback } from "react";
 import { Avatar, AvatarImage, AvatarFallback } from "./ui/avatar";
 import { Tooltip, TooltipTrigger, TooltipContent } from "./ui/tooltip";
 import { Button } from "./ui/button";
 import { Reply, Edit2, Trash2, MoreHorizontal, Paperclip } from "lucide-react";
 import { formatDate, formatDate2 } from "../utils";
 import ReplyPreview from "./ReplyPreview";
-import { useMemberDetails } from "../hooks/useMemberDetails";
-import useUserDetailStore from "@/store/userDetails";
-import useChatOpenedStore from "@/store/chatOpened";
-import useMessages from "@/hooks/useMessage";
+
 import ReactMarkdown, {
     Components as ReactMarkdownComponents,
 } from "react-markdown";
+import { useMessageService } from "@/contexts/MessageServiceProvider";
+import useChatOpenedStore from "@/store/chatOpened";
 
 const renderers: ReactMarkdownComponents = {
     p: ({ children }) => <p className="text-accent-foreground">{children}</p>,
@@ -81,9 +80,6 @@ interface MessageItemProps {
     sender: SimpleChatMember;
     isCurrentUser: boolean;
     isCurrentUserAdmin: boolean;
-    chatOpened: ChatGroupDetails;
-    deleteMessage: (chatId: string, messageId: string) => void;
-    editMessage: (chatId: string, messageId: string, text: string) => void;
     setSelectedForReply: () => void;
     setEditingMessage: () => void;
     clearEditingMessageStatus: () => void;
@@ -95,16 +91,17 @@ const MessageItem = memo<MessageItemProps>(
         isFirstMessage,
         editingMessage,
         selectedForReply,
-        chatOpened,
         sender,
         isCurrentUser,
         isCurrentUserAdmin,
-        deleteMessage,
-        editMessage,
         setSelectedForReply,
         setEditingMessage,
         clearEditingMessageStatus,
     }) => {
+        const chatOpened = useChatOpenedStore((state) => state.chatOpened);
+        const { deleteMessage, editMessage } = useMessageService();
+        if (!chatOpened)
+            throw new Error("Chat opened not found in MessageItem");
         return (
             <div
                 data-message-id={message._id}
@@ -162,10 +159,7 @@ const MessageItem = memo<MessageItemProps>(
                                         variant="ghost"
                                         className="w-8 h-8 p-2 rounded-none"
                                         onClick={() => {
-                                            deleteMessage(
-                                                chatOpened._id,
-                                                message._id
-                                            );
+                                            deleteMessage(message._id);
                                         }}
                                     >
                                         <Trash2 className="aspect-square h-4" />
@@ -311,7 +305,6 @@ const MessageItem = memo<MessageItemProps>(
 
                                             if (text?.trim()) {
                                                 editMessage(
-                                                    chatOpened._id,
                                                     message._id,
                                                     text.trim()
                                                 );

@@ -7,9 +7,7 @@ import useUserDetailStore from "@/store/userDetails";
 import { Textarea } from "@/components/ui/textarea";
 import { TooltipProvider } from "./ui/tooltip";
 import { useSocket } from "@/socket/SocketProvider";
-import { SOCKET_EVENTS } from "@/socket/events";
 import useChatOpenedStore from "@/store/chatOpened";
-import useMessages from "@/hooks/useMessage";
 import { convertHtmlToMarkdown } from "@/utils";
 import { EmojiPicker } from "./ui/EmojiPicker";
 import { toast } from "sonner";
@@ -20,7 +18,6 @@ import {
     DialogFooter,
     DialogHeader,
     DialogTitle,
-    DialogTrigger,
     DialogClose,
 } from "@/components/ui/dialog";
 import {
@@ -29,12 +26,12 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import useUserContacts from "@/hooks/useUserContacts";
 import MessageItem from "./MessageItem";
 import useMemberStore from "@/store/membersStore";
 import { useDialog } from "./ui/use-dialog";
 import { GroupDetailsDialog } from "./GroupDetailsDialog";
-import useChat from "@/hooks/useChat";
+import { useMessageService } from "@/contexts/MessageServiceProvider";
+import { useChatService } from "@/contexts/ChatServiceProvider";
 
 function formatFileSize(bytes: number): string {
     const sizes = ["Bytes", "KB", "MB", "GB"];
@@ -44,13 +41,12 @@ function formatFileSize(bytes: number): string {
 }
 
 export function MainChatArea() {
-    const { messages, sendMessage, deleteMessage, editMessage, handleTyping } =
-        useMessages();
+    const { messages, sendMessage, handleTyping, clearChat } =
+        useMessageService();
     const { chatOpened } = useChatOpenedStore();
-    const { removeMember } = useChat();
-    const { updateContact } = useUserContacts();
+    const { removeMember } = useChatService();
     const userDetails = useUserDetailStore((state) => state.userDetails)!;
-    const { socket, onlineContacts, typingUsers } = useSocket();
+    const { onlineContacts, typingUsers, updateContact } = useSocket();
     const [newMessage, setNewMessage] = useState("");
     const { membersMap } = useMemberStore();
 
@@ -120,16 +116,10 @@ export function MainChatArea() {
     //     }
     // }, [chatOpened, initializeMessages, resetMessages]);
 
-    //todo move to provider
     useEffect(() => {
         setNewMessage("");
-        if (socket && chatOpened) {
-            socket.emit(SOCKET_EVENTS.JOIN_ROOM, chatOpened._id);
-            return () => {
-                socket.emit(SOCKET_EVENTS.LEAVE_ROOM, chatOpened._id);
-            };
-        }
-    }, [socket, chatOpened]);
+        msgInputRef.current?.focus();
+    }, [chatOpened]);
 
     useEffect(() => {
         if (selectedForReply) {
@@ -170,7 +160,33 @@ export function MainChatArea() {
             </div>
         );
     return (
-        <div className="flex-1 flex flex-col border rounded-r-lg border-l-0 max-h-screen">
+        <div
+            className="flex-1 flex flex-col border rounded-r-lg border-l-0 max-h-screen"
+            onKeyDown={() => {
+                // if (document.activeElement === document.body && chatOpened) {
+                //     const restrictedKeys: string[] = [
+                //         "Escape",
+                //         "Enter",
+                //         "Tab",
+                //         "ArrowUp",
+                //         "ArrowDown",
+                //         "ArrowLeft",
+                //         "ArrowRight",
+                //         "Backspace",
+                //         "Delete",
+                //         "Shift",
+                //         "Control",
+                //         "Alt",
+                //         "Meta",
+                //         "CapsLock",
+                //         " ",
+                //     ];
+                //     console.log(e.key);
+                //     if (restrictedKeys.includes(e.key)) return;
+                //     msgInputRef.current?.focus();
+                // }
+            }}
+        >
             <div className="p-4 border-b flex justify-between items-center">
                 <div className="flex items-center select-none">
                     <Avatar className="h-10 w-10 mr-4">
@@ -185,26 +201,34 @@ export function MainChatArea() {
                     <div>
                         <h2 className="font-bold">{chatOpened.displayName}</h2>
                         <p className="text-xs text-muted-foreground">
-                            {typingUsers.length > 0
-                                ? `${new Intl.ListFormat("en").format(
-                                      typingUsers.map(
-                                          (id) =>
-                                              membersMap.get(id)?.username || ""
+                            {typingUsers.length > 0 &&
+                                `${new Intl.ListFormat("en").format(
+                                    typingUsers.map(
+                                        (id) =>
+                                            membersMap.get(id)?.username || ""
+                                    )
+                                )} is typing...`}
+                            {typingUsers.length === 0 &&
+                                (chatOpened.type === "chat"
+                                    ? onlineContacts.includes(
+                                          chatOpened.members.find(
+                                              (m) =>
+                                                  m.user._id !== userDetails._id
+                                          )!.user._id
                                       )
-                                  )} is typing...`
-                                : chatOpened.type === "chat"
-                                ? onlineContacts.includes(
-                                      chatOpened.members.find(
-                                          (m) => m.user._id !== userDetails._id
-                                      )!.user._id
-                                  )
-                                    ? "Online"
-                                    : "Offline"
-                                : `${new Intl.ListFormat("en").format(
-                                      Array.from(membersMap.values())
-                                          .map((e) => e.username)
-                                          .sort((a, b) => a.localeCompare(b))
-                                  )}`}
+                                        ? "Online"
+                                        : chatOpened.displayName.includes(
+                                              " (Unknown)"
+                                          )
+                                        ? ""
+                                        : "Offline"
+                                    : `${new Intl.ListFormat("en").format(
+                                          Array.from(membersMap.values())
+                                              .map((e) => e.username)
+                                              .sort((a, b) =>
+                                                  a.localeCompare(b)
+                                              )
+                                      )}`)}
                         </p>
                     </div>
                 </div>
@@ -277,13 +301,7 @@ export function MainChatArea() {
                                 <DialogClose asChild>
                                     <Button
                                         variant="destructive"
-                                        onClick={() => {
-                                            if (!socket || !chatOpened) return;
-                                            socket.emit(
-                                                SOCKET_EVENTS.CLEAR_CHAT,
-                                                { chatId: chatOpened._id }
-                                            );
-                                        }}
+                                        onClick={clearChat}
                                     >
                                         Clear
                                     </Button>
@@ -352,9 +370,6 @@ export function MainChatArea() {
                                     ? editingMessage.text
                                     : ""
                             }
-                            chatOpened={chatOpened}
-                            deleteMessage={deleteMessage}
-                            editMessage={editMessage}
                             sender={
                                 membersMap.get(message.senderId) || {
                                     username: `Unknown (${message.senderId})`,
