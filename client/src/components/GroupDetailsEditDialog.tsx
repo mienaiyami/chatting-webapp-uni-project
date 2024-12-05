@@ -84,7 +84,6 @@ export default function GroupDetailsEditDialog({
     };
 
     const handleEditGroup = async () => {
-        console.log(groupName, selectedUsers, displayPicture);
         if (!chatOpened) return;
         editGroup({
             groupId: chatOpened._id,
@@ -288,7 +287,7 @@ export default function GroupDetailsEditDialog({
                         </Button>
                     </DialogClose>
                     <DialogClose asChild>
-                        <Button onClick={handleEditGroup}>Create Group</Button>
+                        <Button onClick={handleEditGroup}>Save</Button>
                     </DialogClose>
                 </div>
             </DialogContent>

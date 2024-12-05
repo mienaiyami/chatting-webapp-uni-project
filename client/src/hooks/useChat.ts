@@ -12,7 +12,7 @@ const useChat = () => {
     const { socket } = useSocket();
     const { userDetails } = useUserDetailStore();
     const { contacts } = useUserContacts();
-    const chatOpened = useChatOpenedStore((e) => e.chatOpened);
+    const { chatOpened, setChatOpened } = useChatOpenedStore();
     const { updateMembers } = useMemberStore();
     const {
         chats,
@@ -161,9 +161,63 @@ const useChat = () => {
         };
         const handleGroupEdited = (data: { group: Group }) => {
             if (data.group) {
-                setGroups((prevGroups) =>
-                    prevGroups.map((g) =>
+                if (chatOpened?._id === data.group._id) {
+                    setChatOpened((prev) => {
+                        if (!prev) return null;
+                        return {
+                            ...prev,
+                            members: data.group.members,
+                        };
+                    });
+                }
+                setGroups((prevGroups) => {
+                    const found = prevGroups.find(
+                        (g) => g._id === data.group._id
+                    );
+                    if (!found) return [...prevGroups, data.group];
+                    return prevGroups.map((g) =>
                         g._id === data.group._id ? data.group : g
+                    );
+                });
+            }
+        };
+
+        const handleMemberRemoved = ({
+            group,
+            userId,
+        }: {
+            group: Group;
+            userId: string;
+            removedBy: string;
+        }) => {
+            if (group._id === chatOpened?._id) {
+                if (userId === userDetails._id) {
+                    setChatOpened(null);
+                } else {
+                    setChatOpened((prev) => {
+                        if (!prev) return null;
+                        return {
+                            ...prev,
+                            members: group.members,
+                        };
+                    });
+                }
+            }
+            if (userId === userDetails._id) {
+                setGroups((prevGroups) =>
+                    prevGroups.filter((g) => g._id !== group._id)
+                );
+            } else {
+                setGroups((prevGroups) =>
+                    prevGroups.map((group) =>
+                        group._id === group._id
+                            ? {
+                                  ...group,
+                                  members: group.members.filter(
+                                      (m) => m.user._id !== userId
+                                  ),
+                              }
+                            : group
                     )
                 );
             }
@@ -183,33 +237,6 @@ const useChat = () => {
             );
         };
 
-        const handleMemberRemoved = ({
-            chatId,
-            userId,
-        }: {
-            chatId: string;
-            userId: string;
-        }) => {
-            if (userId === userDetails._id) {
-                setGroups((prevGroups) =>
-                    prevGroups.filter((g) => g._id !== chatId)
-                );
-            } else {
-                setGroups((prevGroups) =>
-                    prevGroups.map((group) =>
-                        group._id === chatId
-                            ? {
-                                  ...group,
-                                  members: group.members.filter(
-                                      (m) => m.user._id !== userId
-                                  ),
-                              }
-                            : group
-                    )
-                );
-            }
-        };
-
         socket.on(SOCKET_EVENTS.CHATS_AND_GROUPS, handleChatsAndGroups);
         socket.on(SOCKET_EVENTS.CHAT_CREATED, handleChatCreated);
         socket.on(SOCKET_EVENTS.GROUP_CREATED, handleGroupCreated);
@@ -222,6 +249,7 @@ const useChat = () => {
             socket.off(SOCKET_EVENTS.CHATS_AND_GROUPS, handleChatsAndGroups);
             socket.off(SOCKET_EVENTS.CHAT_CREATED, handleChatCreated);
             socket.off(SOCKET_EVENTS.GROUP_CREATED, handleGroupCreated);
+            socket.off(SOCKET_EVENTS.GROUP_EDITED, handleGroupEdited);
             socket.off("error", handleError);
             socket.off(SOCKET_EVENTS.NEW_MESSAGE, handleNewMessage);
             socket.off(SOCKET_EVENTS.MEMBER_REMOVED, handleMemberRemoved);
@@ -308,10 +336,10 @@ const useChat = () => {
     }, [userDetails]);
 
     useLayoutEffect(() => {
-        if (chatOpened && chatOpened.members.length > 0) {
-            updateMembers(chatOpened.members, userDetails?._id || "", contacts);
+        if (userDetails && chatOpened && chatOpened.members.length > 0) {
+            updateMembers(chatOpened.members, userDetails._id, contacts);
         }
-    }, [chatOpened, contacts, chats, groups, userDetails]);
+    }, [chatOpened, contacts, chats, groups, userDetails, updateMembers]);
 
     return {
         loading,

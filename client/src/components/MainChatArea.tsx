@@ -314,14 +314,16 @@ export function MainChatArea() {
                                             });
                                         }}
                                     >
-                                        Clear
+                                        Leave
                                     </Button>
                                 </DialogClose>
                             </DialogFooter>
                         </DialogContent>
                     </Dialog>
                     <Dialog {...groupDetailsDialog.dialogProps}>
-                        <GroupDetailsDialog />
+                        <GroupDetailsDialog
+                            trigger={leaveGroupDialog.trigger}
+                        />
                     </Dialog>
                 </div>
             </div>

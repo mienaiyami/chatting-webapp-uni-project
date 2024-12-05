@@ -603,14 +603,25 @@ io.on("connection", async (socket) => {
                     return;
                 }
 
-                await Group.updateOne(
-                    { _id: groupId },
-                    { $pull: { members: { user: targetUserId } } }
+                const updatedGroup = await Group.findByIdAndUpdate(
+                    groupId,
+                    { $pull: { members: { user: targetUserId } } },
+                    { new: true }
                 );
 
+                await updatedGroup.populate([
+                    {
+                        path: "members.user",
+                        select: "username avatarUrl",
+                    },
+                    {
+                        path: "messages",
+                        options: { sort: { createdAt: -1 }, limit: 1 },
+                    },
+                ]);
                 const memberIds = group.members.map((m) => m.user.toString());
                 io.to(memberIds).emit(SOCKET_EVENTS.MEMBER_REMOVED, {
-                    groupId,
+                    group: updatedGroup,
                     userId: targetUserId,
                     removedBy: userId,
                 });

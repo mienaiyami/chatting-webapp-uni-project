@@ -34,7 +34,11 @@ import { formatDate2 } from "@/utils";
 import { useDialog } from "./ui/use-dialog";
 import GroupDetailsEditDialog from "./GroupDetailsEditDialog";
 
-export function GroupDetailsDialog() {
+type GroupDetailsDialogProps = {
+    trigger: () => void;
+};
+
+export function GroupDetailsDialog({ trigger }: GroupDetailsDialogProps) {
     const [searchQuery, setSearchQuery] = useState("");
     const userDetails = useUserDetailStore((s) => s.userDetails);
     const chatOpened = useChatOpenedStore((s) => s.chatOpened);
@@ -63,21 +67,6 @@ export function GroupDetailsDialog() {
         // if (!socket) return;
         // socket.emit(
         //     SOCKET_EVENTS.MAKE_ADMIN,
-        //     {
-        //         groupId: chatOpened._id,
-        //         userId,
-        //     },
-        //     (response: { error?: string }) => {
-        //         if (response.error) {
-        //             toast.error(response.error);
-        //         }
-        //     }
-        // );
-    };
-    const handleRemoveMember = (userId: string) => {
-        // if (!socket) return;
-        // socket.emit(
-        //     SOCKET_EVENTS.REMOVE_MEMBER,
         //     {
         //         groupId: chatOpened._id,
         //         userId,
@@ -198,9 +187,12 @@ export function GroupDetailsDialog() {
                                                     )}
                                                     <DropdownMenuItem
                                                         onClick={() =>
-                                                            handleRemoveMember(
-                                                                member.user._id
-                                                            )
+                                                            removeMember({
+                                                                groupId:
+                                                                    chatOpened._id,
+                                                                userId: member
+                                                                    .user._id,
+                                                            })
                                                         }
                                                     >
                                                         Remove from Group
@@ -213,22 +205,27 @@ export function GroupDetailsDialog() {
                         ))}
                     </ScrollArea>
                 </div>
-                <div className="flex justify-between">
-                    <Button
-                        className="flex items-center w-full "
-                        {...groupDetailsEditDialog.triggerProps}
-                    >
-                        <Edit className="w-4 h-4 mr-2" />
-                        Edit Details
-                        <Separator orientation="vertical" className="mx-6" />
-                        <UserPlus className="w-4 h-4 mr-2" />
-                        Add Members
-                    </Button>
-                    <GroupDetailsEditDialog
-                        {...groupDetailsEditDialog.dialogProps}
-                    />
-                </div>
-                <Button variant="destructive" onClick={() => {}}>
+                {isAdmin && (
+                    <div className="flex justify-between">
+                        <Button
+                            className="flex items-center w-full "
+                            {...groupDetailsEditDialog.triggerProps}
+                        >
+                            <Edit className="w-4 h-4 mr-2" />
+                            Edit Details
+                            <Separator
+                                orientation="vertical"
+                                className="mx-6"
+                            />
+                            <UserPlus className="w-4 h-4 mr-2" />
+                            Add Members
+                        </Button>
+                        <GroupDetailsEditDialog
+                            {...groupDetailsEditDialog.dialogProps}
+                        />
+                    </div>
+                )}
+                <Button variant="destructive" onClick={trigger}>
                     Leave Group
                 </Button>
             </div>
